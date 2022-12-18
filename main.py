@@ -15,6 +15,7 @@ class Pixel:
         self.origin_x = x
         self.origin_y = y
         self._calculate_brightness()
+        self.in_field_of_view = True
 
     def _calculate_brightness(self):
         calculated_color = []
@@ -159,8 +160,17 @@ class Matrix:
     
     def _add_sprite(self, sprite):
         for pixel in sprite.pixels:
+            if pixel.x > self.width or pixel.x < 0:
+                pixel.in_field_of_view = False
+            elif pixel.y > self.height or pixel.y < 0:
+                pixel.in_field_of_view = False
+            else:
+                pixel.in_field_of_view = True
             try:
-                self.np[self.coord[pixel.y][pixel.x]] = pixel.color
+                if pixel.in_field_of_view:
+                    self.np[self.coord[pixel.y][pixel.x]] = pixel.color
+                else:
+                    self.np[self.coord[pixel.y][pixel.x]] = [0, 0, 0]
             except IndexError:
                 pass
 
@@ -169,7 +179,7 @@ class Matrix:
             for sprite in sprite_group:
                 self._add_sprite(sprite)
         self.np.write()
-        
+
     def delete_sprite_groups(self):
         self.sprite_groups = []
         
@@ -228,16 +238,20 @@ class PixelParty:
             sprite.read_pixels_from_file('pixels_data/' + letter + '.pixels')
             sprite.set_pos(x, 0)
             spriteGroup.add(sprite)
-            x += 5
+            x += 6
 
         test = 0
-        while test < 20:
+        spriteGroup.move(16, 0)
+        while test < (len(text)*5+20):
             self.matrix.sprite_groups = [spriteGroup.sprites_list]
             self.matrix.show()
-            time.sleep(0.2)
-            # self.matrix.clear()
+            time.sleep(0.1)
             spriteGroup.move(-1, 0)
+            # self.matrix.clear()
             test += 1
+            # for sprite_group in self.matrix.sprite_groups:
+            #     for sprite in sprite_group:
+            #         print(sprite.pixels)
 
     def show_animation(self):
         pass
@@ -250,7 +264,8 @@ def main():
             pixelParty.show_picture('super_mario_4.pixels')
             time.sleep(1)
             # pixelParty.show_all_signs()
-            pixelParty.show_text('BAUM')
+            gc.collect()
+            pixelParty.show_text('BAUMHAUS')
     except KeyboardInterrupt:
         pixelParty.matrix.clear()
         pixelParty.matrix.delete_sprite_groups()
