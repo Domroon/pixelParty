@@ -1,6 +1,7 @@
 from machine import Pin
 from neopixel import NeoPixel
 import time
+import gc
 
 
 class Pixel:
@@ -62,6 +63,8 @@ class Sprite:
                     self.pixels.append(pixel)
                 x += 1
             y += 1
+        gc.collect()
+        
     
     def read_pixels_from_file(self, filename):
         file = open(filename)
@@ -110,10 +113,14 @@ class Sprite:
 
 class SpriteGroup:
     def __init__(self, sprite_list=[]):
-        self.sprites = sprite_list
+        self.sprites_list = sprite_list
         
     def add(self, sprite):
-        self.sprites.append(sprite)
+        self.sprites_list.append(sprite)
+
+    def move(self, x, y):
+        for sprite in self.sprites_list:
+            sprite.move(x, y)
         
     def remove(self):
         self.sprites.pop()
@@ -156,12 +163,15 @@ class Matrix:
                 self.np[self.coord[pixel.y][pixel.x]] = pixel.color
             except IndexError:
                 pass
-    
+
     def show(self):
         for sprite_group in self.sprite_groups:
             for sprite in sprite_group:
                 self._add_sprite(sprite)
         self.np.write()
+        
+    def delete_sprite_groups(self):
+        self.sprite_groups = []
         
     def clear(self):
         self.np.fill((0, 0, 0))
@@ -171,87 +181,79 @@ class Matrix:
         self.np.fill((0, 0, 0))
 
 
-class Word:
-    def __init__(self, sign_size):
-        self.spriteGroup = SpriteGroup()
-        self.spriteGroup.sprites = []
-        self.sign_size = sign_size
-        self.x = 0
-        self.y = 0
-    
-    def add_word(self, word_string):
-        for count, sign in enumerate(word_string):
-            sprite = Sprite()
+class Animation:
+    def __init__(self):
+        pass
+
+
+class PixelParty:
+    def __init__(self, pin_num):
+        self.pin = Pin(pin_num, Pin.OUT)
+        self.matrix = Matrix(self.pin, [])
+        self.tick = 0.1
+
+    def _reset_matrix(self):
+        self.matrix.clear()
+        self.matrix.delete_sprite_groups()
+
+    def show_picture(self, filename):
+        self._reset_matrix()
+        sprite = Sprite()
+        sprite.read_pixels_from_file(filename)
+        spriteGroup = SpriteGroup(sprite_list=[sprite])
+        self.matrix.sprite_groups = [spriteGroup.sprites_list]
+        self.matrix.show()
+        
+    def show_all_signs(self):
+        self._reset_matrix()
+        signs = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
+        sprite = Sprite()
+        spriteGroup = SpriteGroup(sprite_list=[sprite])
+        self.matrix.sprite_groups = [spriteGroup.sprites_list]
+        for sign in signs:
             sprite.read_pixels_from_file('pixels_data/' + sign + '.pixels')
-            sprite.set_pos(count*self.sign_size, 0)
-            self.spriteGroup.add(sprite)
+            sprite.change_all_color((100, 0, 0))
+            self.matrix.show()
+            time.sleep(self.tick)
 
-    def get_sprites(self):
-        return self.spriteGroup.sprites
+    def show_time(self):
+        pass
 
-    def move(self, x, y):
-        self.x = x
-        self.y = y
-        for sprite in self.get_sprites():
-            sprite.move(self.x, self.y)
-            
-    def set_pos(self, x, y):
-        for count, sprite in enumerate(self.get_sprites()):
-            sprite.set_pos(count*self.sign_size, 0)
+    def show_text(self, text):
+        self._reset_matrix()
+        spriteGroup = SpriteGroup(sprite_list=[])
+        x = 0
+        for letter in text:
+            sprite = Sprite()
+            sprite.read_pixels_from_file('pixels_data/' + letter + '.pixels')
+            sprite.set_pos(x, 0)
+            spriteGroup.add(sprite)
+            x += 5
+
+        test = 0
+        while test < 20:
+            self.matrix.sprite_groups = [spriteGroup.sprites_list]
+            self.matrix.show()
+            time.sleep(0.2)
+            # self.matrix.clear()
+            spriteGroup.move(-1, 0)
+            test += 1
+
+    def show_animation(self):
+        pass
 
 
 def main():
-    
-    pin = Pin(33, Pin.OUT)
-
-    sprite = Sprite()
-    sprite.read_pixels_from_file('super_mario_4.pixels')
-    print(sprite.pixels)
-
-
-    # sprite.read_pixels_from_file('pixels_data/0.pixels')
-    # sprite.change_all_color((100, 0, 0))
-
-    # sprite_2 = Sprite()
-    # sprite_2.set_pos(5, 5)
-    
-    # sprite_group_2 = SpriteGroup()
-    # sprite_group_2.add(sprite_2)
-
-    spriteGroup = SpriteGroup()
-    spriteGroup.add(sprite)
-
-    # first_word = Word(6)
-    # first_word.add_word('DORTMUND')
-    
-    # matrix = Matrix(pin, [sprite_group_2.sprites, spriteGroup.sprites])
-    matrix = Matrix(pin, [spriteGroup.sprites])
-    tick = 0.1
+    pixelParty = PixelParty(33)
     try:
-#         signs = '0123456789ABCDEFGHIJKLMNOPQRSTUVWXYZ'
-#         while True:
-#             for sign in signs:
-#                 sprite.read_pixels_from_file('pixels_data/' + sign + '.pixels')
-#                 sprite.change_all_color((100, 0, 0))
-#                 matrix.show()
-#                 time.sleep(0.2)
-#                 time.sleep(tick)
-        # while True:
-        #     matrix.show()
-        #     time.sleep(1)
-        #     for _ in range(30):
-        #         matrix.show()
-        #         first_word.move(-1, 0)
-        #         time.sleep(tick)
-        #         matrix.fill_black()
-        #     matrix.show()
-        #     first_word.set_pos(0, 0)
-        #     time.sleep(tick)
-        #     time.sleep(1)
-        #     matrix.fill_black()
-        matrix.show()
+        while True:
+            pixelParty.show_picture('super_mario_4.pixels')
+            time.sleep(1)
+            # pixelParty.show_all_signs()
+            pixelParty.show_text('BAUM')
     except KeyboardInterrupt:
-        matrix.clear()
+        pixelParty.matrix.clear()
+        pixelParty.matrix.delete_sprite_groups()
        
     
 if __name__ == '__main__':
