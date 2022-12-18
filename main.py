@@ -2,6 +2,8 @@ from machine import Pin
 from neopixel import NeoPixel
 import time
 import gc
+from machine import RTC
+from random import randint
 
 
 class Pixel:
@@ -192,8 +194,75 @@ class Matrix:
 
 
 class Animation:
-    def __init__(self):
-        pass
+    def __init__(self, pin_num, width=16, height=16):
+        self.width = width
+        self.height = height
+        self.pin = Pin(pin_num, Pin.OUT)
+        self.np = NeoPixel(self.pin, width*height)
+        self.tick = 0.1
+
+    def _clear(self):
+        self.np.fill((0, 0, 0))
+        self.np.write()
+
+    def line_top_bottom(self, color=(25, 25, 25)):
+        pos = 0
+        row = self.height
+        while pos < 256:
+            while pos < row:
+                self.np[pos] = color
+                pos = pos + 1
+            self.np.write()
+            time.sleep(0.05)
+            row = row + 16
+            self._clear()
+
+
+    def full_color(self, color):
+        self.np.fill(color)
+        self.np.write()
+
+
+    def full_fade_in(self):
+        for brightness in range (0, 100):
+            self.np.fill((brightness, 0, 0))
+            self.np.write()
+            time.sleep(0.01)
+            
+    def color_change(self):
+        for red in range (0, 100):
+            self.np.fill((red, 0, 0))
+            self.np.write()
+            time.sleep(0.005)
+        red = 100
+        for green in range (0, 100):
+            self.np.fill((red, green, 0))
+            self.np.write()
+            time.sleep(0.05)
+            red = red - 1
+        green = 100
+        for blue in range (0, 100):
+            self.np.fill((0, green, blue))
+            self.np.write()
+            time.sleep(0.05)
+            green = green - 1
+
+    def random_colors(self):
+        for pos in range(0, 256):
+            max = randint(0, 50)
+            self.np[pos] = (randint(0, max), randint(0, max), randint(0, max))
+        self.np.write()
+
+    def random_color_flash(self):
+        self.np[randint(0, 255)] = (255, 255, 255)
+        self.np[randint(0, 255)] = (255, 0, 0)
+        self.np[randint(0, 255)] = (0, 255, 0)
+        self.np[randint(0, 255)] = (0, 0, 255)
+        self.np[randint(0, 255)] = (255, 0, 255)
+        self.np[randint(0, 255)] = (0, 255, 255)
+        self.np.write()
+        time.sleep(0.03)
+        self._clear()
 
 
 class PixelParty:
@@ -201,6 +270,7 @@ class PixelParty:
         self.pin = Pin(pin_num, Pin.OUT)
         self.matrix = Matrix(self.pin, [])
         self.tick = 0.1
+        self.rtc = RTC()
 
     def _reset_matrix(self):
         self.matrix.clear()
@@ -226,8 +296,19 @@ class PixelParty:
             self.matrix.show()
             time.sleep(self.tick)
 
-    def show_time(self):
-        pass
+    # def show_time(self):
+    #     hour = self.rtc.datetime()[4]
+    #     minute = self.rtc.datetime()[5]
+    #     second = self.rtc.datetime()[6]
+    #     print(hour, minute, second)
+    #     time_now = [hour, minute, second]
+    #     for num in time_now:
+    #         sprite = Sprite()
+    #         print('pixels_data/' + str(num) + '.pixels')
+    #         sprite.read_pixels_from_file('pixels_data/' + str(num) + '.pixels')
+    #         sprite.set_pos(x, 0)
+    #         spriteGroup.add(sprite)
+    #         x += 6
 
     def show_text(self, text):
         self._reset_matrix()
@@ -240,18 +321,14 @@ class PixelParty:
             spriteGroup.add(sprite)
             x += 6
 
-        test = 0
+        shift = 0
         spriteGroup.move(16, 0)
-        while test < (len(text)*5+20):
+        while shift < (len(text)*5+20):
             self.matrix.sprite_groups = [spriteGroup.sprites_list]
             self.matrix.show()
             time.sleep(0.1)
             spriteGroup.move(-1, 0)
-            # self.matrix.clear()
-            test += 1
-            # for sprite_group in self.matrix.sprite_groups:
-            #     for sprite in sprite_group:
-            #         print(sprite.pixels)
+            shift += 1
 
     def show_animation(self):
         pass
@@ -259,13 +336,25 @@ class PixelParty:
 
 def main():
     pixelParty = PixelParty(33)
+    animation = Animation(33)
     try:
         while True:
             pixelParty.show_picture('super_mario_4.pixels')
             time.sleep(1)
-            # pixelParty.show_all_signs()
-            gc.collect()
-            pixelParty.show_text('BAUMHAUS')
+            pixelParty.show_all_signs()
+            pixelParty.show_text('DORTMUND')
+            animation.line_top_bottom()
+            # animation.full_fade_in()
+            animation.color_change()
+            # animation.full_color()
+            rounds = 0
+            while rounds < 100:
+                animation.random_color_flash()
+                rounds += 1
+            rounds = 0
+            while rounds < 100:
+                animation.random_colors()
+                rounds += 1
     except KeyboardInterrupt:
         pixelParty.matrix.clear()
         pixelParty.matrix.delete_sprite_groups()
