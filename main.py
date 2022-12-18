@@ -5,6 +5,11 @@ import gc
 from machine import RTC
 from random import randint
 
+from networking import download_json_file
+from networking import LINK
+from networking import Client
+from ulogging import Logger
+
 
 class Pixel:
     def __init__(self, id, x, y, color=[255, 0, 255], brightness=0.1):
@@ -130,13 +135,12 @@ class SpriteGroup:
 
 
 class Matrix:
-    def __init__(self, pin, sprite_groups, width=16, height=16):
-        self.pin = pin
+    def __init__(self, neopixel, sprite_groups, width=16, height=16):
         self.sprite_groups = sprite_groups
         self.width = width
         self.height = height
         self.led_qty = width * height
-        self.np = NeoPixel(self.pin, self.led_qty)
+        self.np = neopixel
         self.coord = self._create_pixel_num_array()
         
     def _create_pixel_num_array(self):
@@ -266,15 +270,17 @@ class Animation:
 
 
 class PixelParty:
-    def __init__(self, pin_num):
+    def __init__(self, matrix, pin_num):
         self.pin = Pin(pin_num, Pin.OUT)
-        self.matrix = Matrix(self.pin, [])
+        self.matrix = matrix
         self.tick = 0.1
         self.rtc = RTC()
+        self.animation = Animation(pin_num)
 
     def _reset_matrix(self):
         self.matrix.clear()
         self.matrix.delete_sprite_groups()
+        gc.collect()
 
     def show_picture(self, filename):
         self._reset_matrix()
@@ -283,6 +289,7 @@ class PixelParty:
         spriteGroup = SpriteGroup(sprite_list=[sprite])
         self.matrix.sprite_groups = [spriteGroup.sprites_list]
         self.matrix.show()
+        gc.collect()
         
     def show_all_signs(self):
         self._reset_matrix()
@@ -295,6 +302,7 @@ class PixelParty:
             sprite.change_all_color((100, 0, 0))
             self.matrix.show()
             time.sleep(self.tick)
+        gc.collect()
 
     # def show_time(self):
     #     hour = self.rtc.datetime()[4]
@@ -329,32 +337,73 @@ class PixelParty:
             time.sleep(0.1)
             spriteGroup.move(-1, 0)
             shift += 1
+        gc.collect()
 
-    def show_animation(self):
-        pass
+    def show_all_animations(self):
+        self.animation.line_top_bottom()
+        # animation.full_fade_in()
+        self.animation.color_change()
+        # animation.full_color()
+        rounds = 0
+        while rounds < 100:
+            self.animation.random_color_flash()
+            rounds += 1
+        rounds = 0
+        while rounds < 100:
+            self.animation.random_colors()
+            rounds += 1
+        gc.collect()
+
+
+class Clock:
+    def __init__(self, logger):
+        self.rtc = RTC()
+        self.logger = logger
+        self.client = Client(logger)
+
+    def _set_rtc_by_internet(self):
+        data = download_json_file(LINK['datetime'])
+        self.rtc.datetime((
+            data['year'],
+            data['month'],
+            data['day'],
+            0,                  # not implemented yet                 
+            data['hour'],
+            data['minute'],
+            data['seconds'],
+            data['milliSeconds']
+        ))
+
+    def set_time(self):
+        self.logger.info("Try to get the time-signal by internet")
+        self.client.activate()
+        self.client.search_wlan()
+        self.client.connect()
+        # networking.print_ip_infos()
+        self._set_rtc_by_internet()
+        self.client.disconnect()
+        self.client.deactivate()
 
 
 def main():
-    pixelParty = PixelParty(33)
-    animation = Animation(33)
+    WIDTH = 16
+    HEIGHT = 16
+    LED_QTY = WIDTH * HEIGHT
+    pin = Pin(33, Pin.OUT)
+    neopixel = NeoPixel(pin, LED_QTY)
+    logger = Logger()
+    matrix = Matrix(neopixel, [])
+    pixelParty = PixelParty(matrix, 33)
+    clock = Clock(logger)
+    clock.set_time()
+    print(clock.rtc.datetime())
     try:
         while True:
-            pixelParty.show_picture('super_mario_4.pixels')
-            time.sleep(1)
             pixelParty.show_all_signs()
             pixelParty.show_text('DORTMUND')
-            animation.line_top_bottom()
-            # animation.full_fade_in()
-            animation.color_change()
-            # animation.full_color()
-            rounds = 0
-            while rounds < 100:
-                animation.random_color_flash()
-                rounds += 1
-            rounds = 0
-            while rounds < 100:
-                animation.random_colors()
-                rounds += 1
+            pixelParty.show_all_animations()
+            # pixelParty.show_picture('super_mario_4.pixels')
+            time.sleep(1)
     except KeyboardInterrupt:
         pixelParty.matrix.clear()
         pixelParty.matrix.delete_sprite_groups()
