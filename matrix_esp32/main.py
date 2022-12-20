@@ -397,6 +397,7 @@ def main():
     clock = Clock(logger)
     clock.set_time()
     print(clock.rtc.datetime())
+    # implement show_time like in esp32Clock
     try:
         while True:
             pixelParty.show_all_signs()
