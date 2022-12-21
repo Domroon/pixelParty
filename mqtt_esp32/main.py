@@ -26,27 +26,34 @@ def evalute_message(topic, msg):
         pin_g2.value(0)
 
 
-def main(server=SERVER):    
+def main():    
     logger = Logger()
     client = Client(logger)
     client.activate()
     client.search_wlan()
     client.connect()
-    mqtt = MQTTClient(CLIENT_ID, server, port=1884, keepalive=30)
+    mqtt = MQTTClient(CLIENT_ID, SERVER, port=1884, keepalive=30)
     # Subscribed messages will be delivered to this callback
     mqtt.set_callback(evalute_message)
     mqtt.connect()
     mqtt.subscribe(TOPIC)
-    print("Connected to %s, subscribed to %s topic" % (server, TOPIC))
 
-    try:
-        while 1:
+    while True:
+        try:
             # micropython.mem_info()
-            mqtt.wait_msg()
-    finally:
+            print("Connected to %s, subscribed to %s topic" % (SERVER, TOPIC))
+            while True:
+                mqtt.wait_msg()
+        except OSError as error:
+            print('OSError:', error)
+            
         mqtt.disconnect()
-        client.disconnect()
-        client.deactivate()
+        mqtt.connect()
+        mqtt.subscribe(TOPIC)
+        print('Try again to connect to MQTT Broker')
+        time.sleep(1)
+        # client.disconnect()
+        # client.deactivate()
         
 
 if __name__ == '__main__':
