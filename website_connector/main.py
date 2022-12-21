@@ -1,5 +1,3 @@
-import time
-
 import paho.mqtt.client as mqtt
 
 # The callback for when the client receives a CONNACK response from the server.
@@ -19,10 +17,17 @@ client = mqtt.Client()
 client.on_connect = on_connect
 client.on_message = on_message
 
-client.connect("192.168.144.168", 1884, 60)
-client.publish('led', 'on')
-time.sleep(5)
-client.publish('led', 'off')
+client.connect("192.168.188.168", 1884, 60)
+client.publish('led_matrix', 'subscribe')
+
+while True:
+    print('1 - Restart LED Matrix')
+    print('q - Exit')
+    user_input = input('Input: ')
+    if user_input == '1':
+        client.publish('led_matrix', 'restart')
+    elif user_input == 'q':
+        exit()
 
 # Blocking call that processes network traffic, dispatches callbacks and
 # handles reconnecting.

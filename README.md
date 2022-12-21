@@ -40,3 +40,4 @@ allow_anonymous true
 - ein javascript-programm ist vermutlich die beste wahl
 - so kann mit simplem html und css gearbeitet werden
 - oder doch lieber flask weil simpel?? AUSTESTEN!! und weiter überlegen ;)
+- ankommende messages am mqtt_esp32 in eine liste (hier queue) schreiben um diese in einem seperaten thread abarbeiten zu können!

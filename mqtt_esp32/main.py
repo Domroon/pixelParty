@@ -3,61 +3,48 @@ from machine import Pin
 import ubinascii
 import machine
 import micropython
+import time
 
 from ulogging import Logger
 from networking import Client
 
 
-# ESP8266 ESP-12 modules have blue, active-low LED on GPIO2, replace
-# with something else if needed.
-led = Pin(2, Pin.OUT, value=1)
+pin_g2 = Pin(2, Pin.OUT, value=0)
 
 # Default MQTT server to connect to
-SERVER = "192.168.144.168"
+SERVER = "192.168.188.168"
 CLIENT_ID = ubinascii.hexlify(machine.unique_id())
-TOPIC = b"led"
+TOPIC = b"led_matrix"
 
 
-state = 0
-
-
-def sub_cb(topic, msg):
-    global state
+def evalute_message(topic, msg):
     print((topic, msg))
-    if msg == b"on":
-        led.value(0)
-        state = 1
-        print("LED ist AN")
-    elif msg == b"off":
-        led.value(1)
-        state = 0
-        print("LED ist AUS")
-    elif msg == b"toggle":
-        # LED is inversed, so setting it to current state
-        # value will make it toggle
-        led.value(state)
-        state = 1 - state
+    if msg == b"restart":
+        print('Restart Matrix ESP')
+        pin_g2.value(1)
+        time.sleep(0.1)
+        pin_g2.value(0)
 
 
-def main(server=SERVER):
+def main(server=SERVER):    
     logger = Logger()
     client = Client(logger)
     client.activate()
     client.search_wlan()
     client.connect()
-    c = MQTTClient(CLIENT_ID, server, port=1884, keepalive=30)
+    mqtt = MQTTClient(CLIENT_ID, server, port=1884, keepalive=30)
     # Subscribed messages will be delivered to this callback
-    c.set_callback(sub_cb)
-    c.connect()
-    c.subscribe(TOPIC)
+    mqtt.set_callback(evalute_message)
+    mqtt.connect()
+    mqtt.subscribe(TOPIC)
     print("Connected to %s, subscribed to %s topic" % (server, TOPIC))
 
     try:
         while 1:
             # micropython.mem_info()
-            c.wait_msg()
+            mqtt.wait_msg()
     finally:
-        c.disconnect()
+        mqtt.disconnect()
         client.disconnect()
         client.deactivate()
         
