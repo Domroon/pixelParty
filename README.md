@@ -25,6 +25,11 @@ https://pypi.org/project/paho-mqtt/
 listener 1884
 allow_anonymous true
 
+## umqtt (micropython library)
+
+https://mpython.readthedocs.io/en/master/library/mPython/umqtt.simple.html
+https://github.com/micropython/micropython-lib/blob/master/micropython/umqtt.simple/umqtt/simple.py
+
 ## to do
 
 - EN-pin vom matrix esp32 kann mit masse verbunden werden um ihn neu zu starten
