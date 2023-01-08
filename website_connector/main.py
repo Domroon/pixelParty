@@ -1,9 +1,14 @@
 import time
 from logging import getLogger
+from pathlib import Path
+import ssl
 
 import paho.mqtt.client as mqtt
 
-BROKER_IP = "192.168.62.168"
+BROKER_IP = "192.168.152.168"
+USERNAME = "domroon"
+PASSWORD = "MPCkY5DGuU19sGgpvQvgYqN8Uw0"
+CWD = Path.cwd() / 'website_connector'
 
 logger = getLogger('mqttInput')
 logger.setLevel(mqtt.MQTT_LOG_INFO)
@@ -30,7 +35,11 @@ def on_log(client, userdata, level, buf):
 
 
 def main():
-    client = mqtt.Client()
+    client = mqtt.Client('websiteConnector')
+    client.username_pw_set(USERNAME, PASSWORD)
+    # client.tls_set(ca_certs = CWD / 'ca.crt',
+    #                certfile= CWD / 'client.crt',
+    #                keyfile= CWD / 'client.key')
     client.enable_logger(logger=logger)
 
     # callbacks

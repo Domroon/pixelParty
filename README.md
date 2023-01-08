@@ -15,6 +15,9 @@
 
 On Windows:
 C:\Program Files\mosquitto>mosquitto.exe -v -c mosquitto.conf
+Set new Password for Broker: mosquitto_passwd.exe -H sha512 -c passwords domroon
+Password for User "domroon": MPCkY5DGuU19sGgpvQvgYqN8Uw0
+SSL-PW for Clients and Server: fPVYGc_Gss79T7vLSIyq2k7CLUE
 
 ## MQTT Website Connector
 
@@ -41,7 +44,7 @@ https://github.com/micropython/micropython-lib/blob/master/micropython/umqtt.sim
 - website_connector und mqtt_esp32 müssen natürlich auf 'led-matrix' subscriben
 - allein ein publish auf ein topic reicht um auf dieses ein subscribe zu haben
 - ein 'is_alive' topic errichten (beide subscriben) und alle 60 sekunden anfragen ob die matrix verbunden ist (auf
-  def website soll dann entsprechend angezeigt werden können ob das gerät online oder offline ist)
+  def website soll dann entsprechend angezeigt werden können ob das gerät online oder offline ist) (!bereits in bibliothek implementiert mit keepalive!)
 - ein javascript-programm ist vermutlich die beste wahl
 - so kann mit simplem html und css gearbeitet werden
 - oder doch lieber flask weil simpel?? AUSTESTEN!! und weiter überlegen ;)

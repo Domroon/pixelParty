@@ -12,9 +12,11 @@ from networking import Client
 pin_g2 = Pin(2, Pin.OUT, value=0)
 
 # Default MQTT server to connect to
-SERVER = "192.168.62.168"
-CLIENT_ID = ubinascii.hexlify(machine.unique_id())
+SERVER = "192.168.152.168"
+CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
 TOPIC = b"led_matrix/#"
+USER = 'domroon'
+PASSWORD = 'MPCkY5DGuU19sGgpvQvgYqN8Uw0'
 
 
 def evalute_message(topic, msg):
@@ -32,7 +34,7 @@ def main():
     client.activate()
     client.search_wlan()
     client.connect()
-    mqtt = MQTTClient(CLIENT_ID, SERVER, port=1884, keepalive=10)
+    mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
     # Subscribed messages will be delivered to this callback
     mqtt.set_callback(evalute_message)
     mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)
