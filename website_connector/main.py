@@ -5,7 +5,6 @@ import ssl
 
 import paho.mqtt.client as mqtt
 
-BROKER_IP = "192.168.152.168"
 USERNAME = "domroon"
 PASSWORD = "MPCkY5DGuU19sGgpvQvgYqN8Uw0"
 CWD = Path.cwd() / 'website_connector'
@@ -16,8 +15,9 @@ logger.setLevel(mqtt.MQTT_LOG_INFO)
 
 # The callback for when the client receives a CONNACK response from the server.
 def on_connect(client, userdata, flags, rc):
-    print(f'Connected with result code {rc} to {BROKER_IP}')
+    print(f'Connected with result code {rc}')
     client.subscribe('led_matrix/#', qos=1)
+    client.publish('website_connector/status', 'online', qos=1)
 
     # Subscribing in on_connect() means that if we lose the connection and
     # reconnect then subscriptions will be renewed.
@@ -34,8 +34,20 @@ def on_log(client, userdata, level, buf):
     print(f'log: {buf}')
 
 
+def on_status(client, userdata, msg):
+    status = msg.payload.decode('utf-8')
+    if status == 'offline':
+        # save it in a sqlite database
+        print('MATRIX IS OFFLINE')
+    if status == 'online':
+        # save it in a sqlite database
+        print('MATRIX IS ONLINE')
+
+
 def main():
-    client = mqtt.Client('websiteConnector')
+    broker_ip = input('Please enter the IP of the Broker: ')
+    client = mqtt.Client('websiteConnector', clean_session=False)
+    client.will_set('website_connector/status', 'offline', qos=1)
     client.username_pw_set(USERNAME, PASSWORD)
     # client.tls_set(ca_certs = CWD / 'ca.crt',
     #                certfile= CWD / 'client.crt',
@@ -46,8 +58,9 @@ def main():
     client.on_connect = on_connect
     client.on_message = on_message
     client.on_log = on_log
+    client.message_callback_add('led_matrix/status', on_status)
 
-    client.connect_async(BROKER_IP, 1884, 10)
+    client.connect_async(broker_ip, 1884, 10)
     client.loop_start()
     
     while True:
@@ -57,6 +70,7 @@ def main():
         if user_input == '1':
             client.publish('led_matrix', 'restart')
         elif user_input == 'q':
+            client.disconnect()
             exit()
 
     
