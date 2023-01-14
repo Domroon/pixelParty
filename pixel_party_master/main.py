@@ -12,12 +12,13 @@ from networking import download_json_file
 from networking import LINK
 from umqtt.simple import MQTTClient
 
-SERVER = "192.168.128.168"
+SERVER = "192.168.226.168"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
 TOPIC = b"led_matrix/#"
 TOPIC_2 = b"website_connector/#"
 USER = 'domroon'
 PASSWORD = 'MPCkY5DGuU19sGgpvQvgYqN8Uw0'
+MODIS = []
 
 mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
 
@@ -79,6 +80,7 @@ class Sprite:
             for value in row:
                 if value:
                     pixel = Pixel(self.id, x, y, color=color_array[y][x])
+                    gc.collect()
                     self.pixels.append(pixel)
                 x += 1
             y += 1
@@ -101,6 +103,25 @@ class Sprite:
                 new_row.append(rgb_list)
             color_array.append(new_row)
         file.close()
+        self.add_colored_pixels(color_array)
+
+    def read_pixels_from_broker(self, data):
+        data_lines = data.split('\n')
+        row = []
+        color_array = []
+        for line in data_lines:
+            gc.collect()
+            row = line.split(';')
+            del row[-1]
+            new_row = []
+            for value in row:
+                rgb_list = []
+                value_list = value[1:-1].split(',')
+                for rgb_value in value_list:
+                    rgb_list.append(int(rgb_value))
+                new_row.append(rgb_list)
+            color_array.append(new_row)
+        gc.collect()
         self.add_colored_pixels(color_array)
     
     def change_all_color(self, new_color):
@@ -287,6 +308,7 @@ class PixelParty:
         self.tick = 0.1
         self.rtc = RTC()
         self.animation = Animation(pin_num)
+        self.modis = []
 
     def _reset_matrix(self):
         self.matrix.clear()
@@ -301,6 +323,14 @@ class PixelParty:
         self.matrix.sprite_groups = [spriteGroup.sprites_list]
         self.matrix.show()
         gc.collect()
+
+    def show_picture_2(self, data):
+        # self._reset_matrix()
+        sprite = Sprite()
+        sprite.read_pixels_from_broker(data)
+        spriteGroup = SpriteGroup(sprite_list=[sprite])
+        self.matrix.sprite_groups = [spriteGroup.sprites_list]
+        self.matrix.show()
         
     def show_all_signs(self):
         self._reset_matrix()
@@ -409,13 +439,22 @@ def evaluate_message(topic, msg):
         print('Modus: ', msg)
     elif topic == "website_connector/modus/text/data":
         print('text: ', msg)
-    
+        MODIS.clear()
+        MODIS.append({'text': msg})
+    elif topic == "website_connector/modus/animation/data":
+        print('animation: ', msg)
+        MODIS.clear()
+        MODIS.append({'animation': msg})
+    elif topic == "website_connector/modus/picture/data":
+        print('picture: ', msg)
+        MODIS.clear()
+        MODIS.append({'picture': msg})
 
 def start_timers():
     tim0 = machine.Timer(0)
     tim0.init(period=100, mode=machine.Timer.PERIODIC, callback=lambda t: mqtt.check_msg())
     tim1 = machine.Timer(1)
-    tim1.init(period=10000, mode=machine.Timer.PERIODIC, callback=lambda t: mqtt.ping())
+    tim1.init(period=9000, mode=machine.Timer.PERIODIC, callback=lambda t: mqtt.ping())
 
 
 def main():
@@ -447,10 +486,32 @@ def main():
     try:
         while True:
             # pixelParty.show_picture('super_mario_4.pixels')
-            pixelParty.show_all_signs()
-            pixelParty.show_text('DORTMUND')
-            pixelParty.show_all_animations()
-            time.sleep(1)
+            # pixelParty.show_all_signs()
+            # pixelParty.show_text('DORTMUND')
+            # pixelParty.show_all_animations()
+            for item in MODIS:
+                for modus, data in item.items():
+                    if modus == 'text':
+                        pixelParty.show_text(data)
+                    elif modus == 'animation':
+                        if data == 'a':
+                            pixelParty.animation.line_top_bottom()
+                        elif data == 'b':
+                            pixelParty.animation.full_color((100, 100, 100))
+                        # elif data == 'c':
+                        #      pixelParty.animation.full_fade_in()
+                        elif data == 'd':
+                            pixelParty.animation.color_change()
+                        elif data == 'e':
+                            pixelParty.animation.random_colors()
+                        elif data == 'f':
+                            pixelParty.animation.random_color_flash()
+                    elif modus == 'picture':
+                        try:
+                            pixelParty.show_picture_2(data)
+                            time.sleep(1)
+                        except MemoryError:
+                            gc.collect()
     except KeyboardInterrupt:
         pixelParty.matrix.clear()
         pixelParty.matrix.delete_sprite_groups()
