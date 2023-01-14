@@ -485,10 +485,6 @@ def main():
     
     try:
         while True:
-            # pixelParty.show_picture('super_mario_4.pixels')
-            # pixelParty.show_all_signs()
-            # pixelParty.show_text('DORTMUND')
-            # pixelParty.show_all_animations()
             for item in MODIS:
                 for modus, data in item.items():
                     if modus == 'text':

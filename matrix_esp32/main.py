@@ -1,4 +1,4 @@
-from machine import Pin
+from machine import Pin, SoftSPI
 from neopixel import NeoPixel
 import time
 import gc
@@ -394,10 +394,34 @@ def main():
     logger = Logger()
     matrix = Matrix(neopixel, [])
     pixelParty = PixelParty(matrix, 33)
-    clock = Clock(logger)
-    clock.set_time()
-    print(clock.rtc.datetime())
-    # implement show_time like in esp32Clock
+    # clock = Clock(logger)
+    # clock.set_time()
+    # print(clock.rtc.datetime())
+
+    # init spi bus
+    MOSI = Pin(25)
+    MISO = Pin(26)
+    SCK = Pin(27)
+    chip_select = Pin(32, mode=Pin.IN)
+
+    spi = SoftSPI(mosi=MOSI, miso=MISO, sck=SCK)
+    spi.init()
+
+    while True:
+        # SPI Communication
+        print('Waiting for Data via SPI')
+        while True:
+            # print(chip_select.value())
+            # if chip_select.value() == 0:
+            print('Start communication via SPI')
+            buffer = spi.read(5)
+            break
+            time.sleep(0.1)
+        print(buffer)
+        time.sleep(0.5)
+
+    
+
     try:
         while True:
             pixelParty.show_all_signs()

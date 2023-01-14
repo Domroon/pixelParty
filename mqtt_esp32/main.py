@@ -1,5 +1,5 @@
 from umqtt.simple import MQTTClient
-from machine import Pin
+from machine import Pin, SoftSPI
 import ubinascii
 import machine
 import micropython
@@ -12,7 +12,7 @@ from networking import Client
 pin_g2 = Pin(2, Pin.OUT, value=0)
 
 # Default MQTT server to connect to
-SERVER = "192.168.77.168"
+SERVER = "192.168.128.168"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
 TOPIC = b"led_matrix/#"
 TOPIC_2 = b"website_connector/#"
@@ -27,19 +27,36 @@ def evaluate_message(topic, msg):
     msg = msg.decode('utf-8')
     print(topic, msg)
     
-    if topic == 'led_matrix/command':
+    if topic == 'website_connector/command':
+        print('restart master')
         if msg == 'restart':
             pin_g2.value(1)
             time.sleep(0.2)
             pin_g2.value(0)
-    # den status zu publishen ist 
-    # unnötig da nachrichten für den website_connector
-    # auf dem broker zwischengespeichert werden
-    # falls dieser nicht online ist
-    #if topic == 'website_connector/status':
-    #    if msg == 'online':
-    #        mqtt.publish('led_matrix/status', 'online', qos=1)
+    elif topic == 'mqtt_connector/modus':
+        print('Modus: ', msg)
+    elif topic == "website_connector/modus/text/data":
+        print('text: ', msg)
+        print(f'Sending Text Data ("{msg}") via SPI to Master')
+        
+        # init spi bus
+        MOSI = Pin(23)
+        MISO = Pin(19)
+        SCK = Pin(18)
+        chip_select = Pin(5, mode=Pin.OUT, value=1)
 
+        spi = SoftSPI(mosi=MOSI, miso=MISO, sck=SCK)
+        spi.init()
+        
+        # send each byte from the bytearray(payload) in a for-loop
+        payload = bytearray(msg)
+        chip_select.value(0)  # start communication
+        print('chip_select: ', chip_select.value())
+        time.sleep(1)
+        # spi.write(payload)
+        spi.write(b'123456')
+        chip_select.value(1)  # end communication
+        print('chip_select: ', chip_select.value())
 
 def main():    
     logger = Logger()
