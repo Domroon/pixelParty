@@ -5,6 +5,7 @@ import ubinascii
 import gc
 from neopixel import NeoPixel
 from random import randint
+import json
 
 from ulogging import Logger
 from networking import Client
@@ -13,6 +14,7 @@ from networking import LINK
 from umqtt.simple import MQTTClient
 from lcd_api import LcdApi
 from i2c_lcd import I2cLcd
+import urequests as requests
 
 SERVER = "192.168.3.168"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
@@ -106,6 +108,7 @@ class Sprite:
                 value_list = value[1:-1].split(',')
                 for rgb_value in value_list:
                     rgb_list.append(int(rgb_value))
+                    gc.collect()
                 new_row.append(rgb_list)
             color_array.append(new_row)
         file.close()
@@ -337,6 +340,15 @@ class PixelParty:
         spriteGroup = SpriteGroup(sprite_list=[sprite])
         self.matrix.sprite_groups = [spriteGroup.sprites_list]
         self.matrix.show()
+
+    def show_picture_3(self, filename):
+        # self._reset_matrix()
+        sprite = Sprite()
+        sprite.read_pixels_from_file(filename)
+        spriteGroup = SpriteGroup(sprite_list=[sprite])
+        self.matrix.sprite_groups = [spriteGroup.sprites_list]
+        self.matrix.show()
+        gc.collect()
         
     def show_all_signs(self):
         self._reset_matrix()
@@ -432,6 +444,68 @@ class Clock:
         self.client.deactivate()
 
 
+class Weather:
+    def __init__(self):
+        self.base_url = "https://api.openweathermap.org/data/2.5/weather?"
+        self.owm_key = "3a9a45b1d4bcf93686f67e679d86e263"
+        self.owm_lat = "51.44328996681601"
+        self.owm_lon = "7.353236392707616"
+        self.owm_units = "metric"
+        self.owm_lang = "de"
+        self.weather_data = None
+
+    def get_current_weather(self):
+        lat = "&lat=" + self.owm_lat 
+        lon = "&lon=" + self.owm_lon
+        key = "&appid=" + self.owm_key
+        units = "&units=" + self.owm_units
+        lang = "&lang=" + self.owm_lang
+
+        url = self.base_url + lat + lon + key + units + lang
+        res = requests.get(url)
+        self.weather_data = json.loads(res.text)
+        print('current weather: ')
+        for key, value in self.weather_data['weather'][0].items():
+            print(key, ': ',value)
+
+    def get_weather_icon_name(self):
+        weather_data = self.weather_data['weather'][0]
+        folder = 'pixels_data/'
+        
+        if weather_data['icon'] == '01d':
+            return folder + 'sun.pixels'
+        elif weather_data['icon'] == '01n':
+            return folder +  'moon.pixels'
+        elif weather_data['icon'] == '02d':
+            return folder +  'cloud.pixels'
+        elif weather_data['icon'] == '02n':
+            return folder +  'cloud.pixels'
+        elif weather_data['icon'] == '03d':
+            return folder +  'cloud.pixels'
+        elif weather_data['icon'] == '03n':
+            return folder +  'cloud.pixels'
+        elif weather_data['icon'] == '04d':
+            return folder +  'cloud.pixels'
+        elif weather_data['icon'] == '04n':
+            return folder +  'cloud.pixels'
+        elif weather_data['icon'] == '09d':
+            return folder +  'rain.pixels'
+        elif weather_data['icon'] == '09n':
+            return folder +  'rain.pixels'
+        elif weather_data['icon'] == '10d':
+            return folder +  'rain.pixels'
+        elif weather_data['icon'] == '10n':
+            return folder +  'rain.pixels'
+        elif weather_data['icon'] == '11d':
+            return folder +  'lightning.pixels'
+        elif weather_data['icon'] == '11n':
+            return folder +  'lightning.pixels'
+        elif weather_data['icon'] == '13d':
+            return folder +  'snow.pixels'
+        elif weather_data['icon'] == '13n':
+            return folder +  'snow.pixels'
+
+
 def evaluate_message(topic, msg):
     topic = topic.decode('utf-8')
     msg = msg.decode('utf-8')
@@ -455,6 +529,11 @@ def evaluate_message(topic, msg):
         print('picture: ', msg)
         MODIS.clear()
         MODIS.append({'picture': msg})
+    elif topic == "website_connector/modus/weather/data":
+        print('weather: ', msg)
+        MODIS.clear()
+        MODIS.append({'weather': msg})
+
 
 def start_timers():
     tim0 = machine.Timer(0)
@@ -472,9 +551,9 @@ def main():
     logger = Logger()
     client = Client(logger)
     client.activate()
-    # client.search_wlan()
-    # client.connect()
-    client.wlan.connect("AlphaCentauri", "6ER6bXskskZ")
+    client.search_wlan()
+    client.connect()
+    # client.wlan.connect("AlphaCentauri", "6ER6bXskskZ")
     lcd.clear()
     lcd.putstr("Connected with")
     lcd.move_to(0, 1)
@@ -505,6 +584,9 @@ def main():
     matrix = Matrix(neopixel, [])
     pixelParty = PixelParty(matrix, 33)
     
+    weather = Weather()
+    weather.get_current_weather()
+
     try:
         while True:
             for item in MODIS:
@@ -527,6 +609,12 @@ def main():
                     elif modus == 'picture':
                         try:
                             pixelParty.show_picture_2(data)
+                            time.sleep(1)
+                        except MemoryError:
+                            gc.collect()
+                    elif modus == 'weather':
+                        try:
+                            pixelParty.show_picture_3(weather.get_weather_icon_name())
                             time.sleep(1)
                         except MemoryError:
                             gc.collect()
