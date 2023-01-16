@@ -1,6 +1,6 @@
 import time
 import machine
-from machine import Pin, RTC
+from machine import Pin, RTC, SoftI2C
 import ubinascii
 import gc
 from neopixel import NeoPixel
@@ -11,14 +11,20 @@ from networking import Client
 from networking import download_json_file
 from networking import LINK
 from umqtt.simple import MQTTClient
+from lcd_api import LcdApi
+from i2c_lcd import I2cLcd
 
-SERVER = "192.168.226.168"
+SERVER = "192.168.3.168"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
 TOPIC = b"led_matrix/#"
 TOPIC_2 = b"website_connector/#"
 USER = 'domroon'
 PASSWORD = 'MPCkY5DGuU19sGgpvQvgYqN8Uw0'
 MODIS = []
+
+I2C_ADDR = 0x27
+totalRows = 2
+totalColumns = 16
 
 mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
 
@@ -459,11 +465,19 @@ def start_timers():
 
 def main():
     print('Start Pixel Party Master')
+    i2c = SoftI2C(scl=Pin(25), sda=Pin(26), freq=10000)
+    lcd = I2cLcd(i2c, I2C_ADDR, totalRows, totalColumns)
+    lcd.putstr("Start Pixel Party Master")
+    
     logger = Logger()
     client = Client(logger)
     client.activate()
     client.search_wlan()
     client.connect()
+    lcd.clear()
+    lcd.putstr("Connected with")
+    lcd.move_to(0, 1)
+    lcd.putstr("WLAN Router")
     
     mqtt.set_callback(evaluate_message)
     mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)

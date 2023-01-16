@@ -33,6 +33,12 @@ allow_anonymous true
 https://mpython.readthedocs.io/en/master/library/mPython/umqtt.simple.html
 https://github.com/micropython/micropython-lib/blob/master/micropython/umqtt.simple/umqtt/simple.py
 
+## lcd display
+
+https://microcontrollerslab.com/i2c-lcd-esp32-esp8266-micropython-tutorial/
+https://peppe8o.com/download/micropython/LCD/lcd_api.py
+https://peppe8o.com/download/micropython/LCD/i2c_lcd.py
+
 ## to do
 
 - EN-pin vom matrix esp32 kann mit masse verbunden werden um ihn neu zu starten
