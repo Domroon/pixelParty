@@ -472,8 +472,9 @@ def main():
     logger = Logger()
     client = Client(logger)
     client.activate()
-    client.search_wlan()
-    client.connect()
+    # client.search_wlan()
+    # client.connect()
+    client.wlan.connect("AlphaCentauri", "6ER6bXskskZ")
     lcd.clear()
     lcd.putstr("Connected with")
     lcd.move_to(0, 1)
@@ -481,7 +482,14 @@ def main():
     
     mqtt.set_callback(evaluate_message)
     mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)
-    mqtt.connect()
+    while True:
+        try:
+            mqtt.connect()
+            break
+        except OSError as error:
+            print('MQTT connect Error', error)
+            print('Try again in 1s...')
+            time.sleep(1)
     mqtt.subscribe(TOPIC, qos=1)
     mqtt.subscribe(TOPIC_2, qos=1)
     mqtt.publish(b"led_matrix/status", "online", qos=1)
