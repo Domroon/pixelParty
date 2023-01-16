@@ -8,7 +8,8 @@ from random import randint
 import json
 
 from ulogging import Logger
-from networking import Client
+from ulogging import DEBUG
+from networking import Client, Server
 from networking import download_json_file
 from networking import LINK
 from umqtt.simple import MQTTClient
@@ -16,7 +17,7 @@ from lcd_api import LcdApi
 from i2c_lcd import I2cLcd
 import urequests as requests
 
-SERVER = "192.168.3.168"
+SERVER = "192.168.116.168"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
 TOPIC = b"led_matrix/#"
 TOPIC_2 = b"website_connector/#"
@@ -548,7 +549,15 @@ def main():
     lcd = I2cLcd(i2c, I2C_ADDR, totalRows, totalColumns)
     lcd.putstr("Start Pixel Party Master")
     
-    logger = Logger()
+    logger = Logger(log_level=DEBUG)
+    
+    # test
+    server = Server(logger)
+    server.activate()
+    server.wait_for_connection()
+    server.receive_http_data()
+    server.deactivate()
+    
     client = Client(logger)
     client.activate()
     client.search_wlan()

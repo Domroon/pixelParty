@@ -98,7 +98,7 @@ class Server:
         self.ap = network.WLAN(network.AP_IF)
         self.log = logger
         self.optimize = micropython_optimize
-        self.ssid = 'ESP-Clock-AP'
+        self.ssid = 'ESP-Matrix-AP'
         self.ip = None
         self.subnet = None
         self.gateway = None
@@ -115,11 +115,11 @@ class Server:
         self.gateway = config_data[2]
         self.dns = config_data[3]
         self.log.info('Server configured')
-        self.log.debug('IP:', self.ip)
-        self.log.debug('Subnet:', self.subnet)
-        self.log.debug('Gateway:', self.gateway)
-        self.log.debug('DNS:', self.dns)
-        self.log.info('SSID:', self.ssid)
+        self.log.debug('IP: ' + self.ip)
+        self.log.debug('Subnet: ' + self.subnet)
+        self.log.debug('Gateway: ' + self.gateway)
+        self.log.debug('DNS: ' + self.dns)
+        self.log.info('SSID: ' + self.ssid)
 
     def activate(self):
         self.ap.active(True)
@@ -145,12 +145,26 @@ class Server:
         self.ap.active(False)
         self.log.info('Access Point Server deactivated')
         
+    def _extract_variables(self, http_line):
+        line = http_line.decode()
+        splitted_line = line.split('?')
+        try:
+            splitted_line[1] = splitted_line[1].replace('\r\n', '')
+            variables_with_values = splitted_line[1].split('&')
+            data_dict = {}
+            for value_variable in variables_with_values:
+                variable = value_variable.split('=')
+                data_dict[variable[0]] = variable[1]
+            print(data_dict)
+        except IndexError:
+            print('No data in text-fields')
+
     def receive_http_data(self):
         s = socket.socket()
         address_info = socket.getaddrinfo('0.0.0.0', 80)
-        self.log.debug('Bind address info:', address_info)
+        # self.log.debug('Bind address info: ' + address_info)
         address = address_info[0][-1]
-        self.log.debug('Address:', address)
+        # self.log.debug('Address: ' + address)
 
         s.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
         s.bind(address)
@@ -158,9 +172,10 @@ class Server:
         info_str = 'Listening, connect your browser to http://' + self.ip + '/'
         self.log.info(info_str)
 
-        while True:
+        run = True
+        while run:
             response = s.accept()
-            self.wdt.feed()
+            # self.wdt.feed()
             client_socket = response[0]
             client_address = response[1]
 
@@ -171,15 +186,19 @@ class Server:
 
             request = client_stream.readline()
             request_type = request.decode().split(" ")[0]
-            self.log.info(request_type, 'request from', client_address)
+            # self.log.info(request_type + ' request from ' + client_address)
             self.log.debug('Request Details:')
             while True:
                 h = client_stream.readline()
                 if h == b"" or h == b"\r\n":
                     break
                 self.log.debug(h)
+                if 'Referer' in h:
+                    self._extract_variables(h)
+                    run = False
+                    break
             
-            with open('/templates/test.html', 'r') as file:
+            with open('html_data/index.html', 'r') as file:
                 data = file.read().encode()
                 client_stream.write(data)
 
