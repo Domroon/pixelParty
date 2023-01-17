@@ -64,6 +64,7 @@ class Client:
             self.available_networks.append(wlan_name)
 
     def connect(self):
+        self._read_stored_networks()
         for network in self.stored_networks:
             if network['ssid'] in self.available_networks:
                 if not self.wlan.isconnected():
@@ -148,17 +149,15 @@ class Server:
     def _extract_variables(self, http_line):
         line = http_line.decode()
         splitted_line = line.split('?')
-        try:
-            splitted_line[1] = splitted_line[1].replace('\r\n', '')
-            variables_with_values = splitted_line[1].split('&')
-            data_dict = {}
-            for value_variable in variables_with_values:
-                variable = value_variable.split('=')
-                data_dict[variable[0]] = variable[1]
-            print(data_dict)
-        except IndexError:
-            print('No data in text-fields')
-
+        splitted_line[1] = splitted_line[1].replace('\r\n', '')
+        variables_with_values = splitted_line[1].split('&')
+        data_dict = {}
+        for value_variable in variables_with_values:
+            variable = value_variable.split('=')
+            data_dict[variable[0]] = variable[1]
+        print(data_dict)
+        return data_dict
+            
     def receive_http_data(self):
         s = socket.socket()
         address_info = socket.getaddrinfo('0.0.0.0', 80)
@@ -194,9 +193,14 @@ class Server:
                     break
                 self.log.debug(h)
                 if 'Referer' in h:
-                    self._extract_variables(h)
-                    run = False
-                    break
+                    try:
+                        data_dict = self._extract_variables(h)
+                        with open('stored_networks.txt', 'a') as f:
+                            f.write('\n' + data_dict['ssid'] + '|' + data_dict['password'])
+                        run = False
+                        break
+                    except IndexError:
+                        print('No data in text-fields')
             
             with open('html_data/index.html', 'r') as file:
                 data = file.read().encode()

@@ -11,13 +11,13 @@ from ulogging import Logger
 from ulogging import DEBUG
 from networking import Client, Server
 from networking import download_json_file
-from networking import LINK
+from networking import LINK, ConnectionError
 from umqtt.simple import MQTTClient
 from lcd_api import LcdApi
 from i2c_lcd import I2cLcd
 import urequests as requests
 
-SERVER = "192.168.116.168"
+SERVER = "100.105.134.251"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
 TOPIC = b"led_matrix/#"
 TOPIC_2 = b"website_connector/#"
@@ -550,19 +550,30 @@ def main():
     lcd.putstr("Start Pixel Party Master")
     
     logger = Logger(log_level=DEBUG)
-    
-    # test
-    server = Server(logger)
-    server.activate()
-    server.wait_for_connection()
-    server.receive_http_data()
-    server.deactivate()
-    
     client = Client(logger)
-    client.activate()
-    client.search_wlan()
-    client.connect()
-    # client.wlan.connect("AlphaCentauri", "6ER6bXskskZ")
+    while True:
+        try:
+            print('Try to connect to an stored available Network')
+            client.activate()
+            client.search_wlan()
+            client.connect()
+            break
+        except ConnectionError:
+            print('No stored Network available')
+            print('Start Fallback Hotspot')
+            client.deactivate()
+            server = Server(logger)
+            server.activate()
+            server.wait_for_connection()
+            server.receive_http_data()
+            server.deactivate()
+            # client.activate()
+            # client.search_wlan()
+            # client.connect()
+            if client.wlan.isconnected():
+                break
+            time.sleep(2)      
+
     lcd.clear()
     lcd.putstr("Connected with")
     lcd.move_to(0, 1)
