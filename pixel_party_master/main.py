@@ -507,6 +507,85 @@ class Weather:
             return folder +  'snow.pixels'
 
 
+class Button:
+    def __init__(self, name, pin):
+        self.name = name
+        self.pin = pin
+
+
+class Buttons:
+    def __init__(self):
+        self.buttons = {}
+
+    def add_button(self, button):
+        self.buttons[button.name] = button.pin
+
+    def add_buttons(self, buttons):
+        for button in buttons:
+            self.buttons[button.name] = button.pin
+
+    def get_all_states(self):
+        output = {}
+        for name, pin in self.buttons.items():
+            output[name] = pin.value()
+        return output
+
+    def get_state_of(self, name):
+        return self.buttons[name].value()
+
+
+class Connector:
+    def __init__(self, logger, lcd, client, server, mqtt, fallback_btn):
+        self.logger = logger
+        self.lcd = lcd
+        self.client = client
+        self.server = server
+        self.mqtt = mqtt
+        self.fallback_btn = fallback_btn
+        self.wlan_reconnect_timer = machine.Timer(0)
+
+    def connect_wlan(self):
+        self.client.activate()
+        self.client.read_stored_networks()
+        connected = self.client.connect()
+        if connected:
+            write_to_lcd(self.lcd, 'Connected to', self.client.connected_network)
+        else:
+            write_to_lcd(self.lcd, 'Not connected', 'to Access Point')
+
+        # in networking:
+        # - check for wlan loss (in timer?)
+        # - improve connect in client, it does not run well!
+
+    def _reconnect(self):
+        if not self.client.wlan.isconnected():
+            self.logger.info('Reconnecting to Access Point...')
+            self.client.wlan.active(False)
+            self.client.wlan.active(True)
+            self.connect_wlan()
+
+    def activate_reconnect_timer(self, sleep_time=20):
+        self.wlan_reconnect_timer.init(period=sleep_time*1000, mode=machine.Timer.PERIODIC, callback=lambda t: self._reconnect())
+
+    def deactivate_reconnect_timer(self):
+        self.wlan_reconnect_timer.deinit()
+
+    def connect_mqtt(self):
+        pass
+
+
+class Display:
+    pass
+
+
+def write_to_lcd(lcd, line_1, line_2):
+    lcd.clear()
+    lcd.move_to(0, 0)
+    lcd.putstr(line_1)
+    lcd.move_to(0, 1)
+    lcd.putstr(line_2)
+
+
 def evaluate_message(topic, msg):
     topic = topic.decode('utf-8')
     msg = msg.decode('utf-8')
@@ -544,103 +623,128 @@ def start_timers():
 
 
 def main():
+    # up_btn = Button('up', Pin(36, Pin.IN))
+    # down_btn = Button('down', Pin(39, Pin.IN))
+    # left_btn = Button('left', Pin(34, Pin.IN))
+    # right_btn = Button('right', Pin(35, Pin.IN))
+    # enter_btn = Button('enter', Pin(32, Pin.IN))
+
+    # buttons = Buttons()
+    # buttons.add_button(fallback_btn)
+
     print('Start Pixel Party Master')
+    fallback_btn = Button('fallback', Pin(27, Pin.IN))
+
     i2c = SoftI2C(scl=Pin(25), sda=Pin(26), freq=10000)
     lcd = I2cLcd(i2c, I2C_ADDR, totalRows, totalColumns)
-    lcd.putstr("Start Pixel Party Master")
+    lcd.putstr("Start Pixel")
+    lcd.move_to(0, 1)
+    lcd.putstr("Party Master")
     
     logger = Logger(log_level=DEBUG)
     client = Client(logger)
-    while True:
-        try:
-            print('Try to connect to an stored available Network')
-            client.activate()
-            client.search_wlan()
-            client.connect()
-            break
-        except ConnectionError:
-            print('No stored Network available')
-            print('Start Fallback Hotspot')
-            client.deactivate()
-            server = Server(logger)
-            server.activate()
-            server.wait_for_connection()
-            server.receive_http_data()
-            server.deactivate()
-            # client.activate()
-            # client.search_wlan()
-            # client.connect()
-            if client.wlan.isconnected():
-                break
-            time.sleep(2)      
+    server = Server(logger)
 
-    lcd.clear()
-    lcd.putstr("Connected with")
-    lcd.move_to(0, 1)
-    lcd.putstr("WLAN Router")
-    
-    mqtt.set_callback(evaluate_message)
-    mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)
-    while True:
-        try:
-            mqtt.connect()
-            break
-        except OSError as error:
-            print('MQTT connect Error', error)
-            print('Try again in 1s...')
-            time.sleep(1)
-    mqtt.subscribe(TOPIC, qos=1)
-    mqtt.subscribe(TOPIC_2, qos=1)
-    mqtt.publish(b"led_matrix/status", "online", qos=1)
-    
-    start_timers()
-    
-    WIDTH = 16
-    HEIGHT = 16
-    LED_QTY = WIDTH * HEIGHT
-    pin = Pin(33, Pin.OUT)
-    neopixel = NeoPixel(pin, LED_QTY)
-    logger = Logger()
-    matrix = Matrix(neopixel, [])
-    pixelParty = PixelParty(matrix, 33)
-    
-    weather = Weather()
-    weather.get_current_weather()
+    connector = Connector(logger,
+                            lcd,
+                            client,
+                            server,
+                            mqtt,
+                            fallback_btn)
 
-    try:
-        while True:
-            for item in MODIS:
-                for modus, data in item.items():
-                    if modus == 'text':
-                        pixelParty.show_text(data)
-                    elif modus == 'animation':
-                        if data == 'a':
-                            pixelParty.animation.line_top_bottom()
-                        elif data == 'b':
-                            pixelParty.animation.full_color((100, 100, 100))
-                        # elif data == 'c':
-                        #      pixelParty.animation.full_fade_in()
-                        elif data == 'd':
-                            pixelParty.animation.color_change()
-                        elif data == 'e':
-                            pixelParty.animation.random_colors()
-                        elif data == 'f':
-                            pixelParty.animation.random_color_flash()
-                    elif modus == 'picture':
-                        try:
-                            pixelParty.show_picture_2(data)
-                            time.sleep(1)
-                        except MemoryError:
-                            gc.collect()
-                    elif modus == 'weather':
-                        try:
-                            pixelParty.show_picture_3(weather.get_weather_icon_name())
-                            time.sleep(1)
-                        except MemoryError:
-                            gc.collect()
-    except KeyboardInterrupt:
-        pixelParty.matrix.clear()
-        pixelParty.matrix.delete_sprite_groups()
+    connector.connect_wlan()
+    connector.activate_reconnect_timer()
+
+    # while True:
+    #     try:
+    #         print('Try to connect to an stored available Network')
+    #         client.activate()
+    #         client.search_wlan()
+    #         client.connect()
+    #         break
+    #     except ConnectionError:
+    #         print('No stored Network available')
+    #         print('Start Fallback Hotspot')
+    #         client.deactivate()
+    #         server = Server(logger)
+    #         server.activate()
+    #         server.wait_for_connection()
+    #         server.receive_http_data()
+    #         server.deactivate()
+    #         # client.activate()
+    #         # client.search_wlan()
+    #         # client.connect()
+    #         if client.wlan.isconnected():
+    #             break
+    #         time.sleep(2)      
+
+    # lcd.clear()
+    # lcd.putstr("Connected with")
+    # lcd.move_to(0, 1)
+    # lcd.putstr("WLAN Router")
+    
+    # mqtt.set_callback(evaluate_message)
+    # mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)
+    # while True:
+    #     try:
+    #         mqtt.connect()
+    #         break
+    #     except OSError as error:
+    #         print('MQTT connect Error', error)
+    #         print('Try again in 1s...')
+    #         time.sleep(1)
+    # mqtt.subscribe(TOPIC, qos=1)
+    # mqtt.subscribe(TOPIC_2, qos=1)
+    # mqtt.publish(b"led_matrix/status", "online", qos=1)
+    
+    # start_timers()
+    
+    # WIDTH = 16
+    # HEIGHT = 16
+    # LED_QTY = WIDTH * HEIGHT
+    # pin = Pin(33, Pin.OUT)
+    # neopixel = NeoPixel(pin, LED_QTY)
+    # logger = Logger()
+    # matrix = Matrix(neopixel, [])
+    # pixelParty = PixelParty(matrix, 33)
+    
+    # weather = Weather()
+    # weather.get_current_weather()
+
+    # try:
+    #     while True:
+    #         for item in MODIS:
+    #             for modus, data in item.items():
+    #                 if modus == 'text':
+    #                     pixelParty.show_text(data)
+    #                 elif modus == 'animation':
+    #                     if data == 'a':
+    #                         pixelParty.animation.line_top_bottom()
+    #                     elif data == 'b':
+    #                         pixelParty.animation.full_color((100, 100, 100))
+    #                     # elif data == 'c':
+    #                     #      pixelParty.animation.full_fade_in()
+    #                     elif data == 'd':
+    #                         pixelParty.animation.color_change()
+    #                     elif data == 'e':
+    #                         pixelParty.animation.random_colors()
+    #                     elif data == 'f':
+    #                         pixelParty.animation.random_color_flash()
+    #                 elif modus == 'picture':
+    #                     try:
+    #                         pixelParty.show_picture_2(data)
+    #                         time.sleep(1)
+    #                     except MemoryError:
+    #                         gc.collect()
+    #                 elif modus == 'weather':
+    #                     try:
+    #                         pixelParty.show_picture_3(weather.get_weather_icon_name())
+    #                         time.sleep(1)
+    #                     except MemoryError:
+    #                         gc.collect()
+    # except KeyboardInterrupt:
+    #     pixelParty.matrix.clear()
+    #     pixelParty.matrix.delete_sprite_groups()
 
 if __name__ == '__main__':
     main()

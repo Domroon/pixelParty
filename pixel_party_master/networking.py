@@ -38,9 +38,10 @@ class Client:
         self.log = logger
         self.available_networks = []
         self.stored_networks = []
-        self._read_stored_networks()
+        self.connected_network = None
 
-    def _read_stored_networks(self):
+    def read_stored_networks(self):
+        self.stored_networks.clear()
         with open("stored_networks.txt", 'r') as file:
             lines = file.read().splitlines()
             for line in lines:
@@ -50,7 +51,7 @@ class Client:
                 self.stored_networks.append({'ssid': value[0], 'key': value[1]})
             
             for network in self.stored_networks:
-                self.log.debug(network['ssid'])
+                self.log.debug("Stored Network: " + network['ssid'])
 
     def activate(self):
         self.wlan.active(True)
@@ -63,33 +64,49 @@ class Client:
             self.log.debug(debug_str)
             self.available_networks.append(wlan_name)
 
-    def connect(self):
-        self._read_stored_networks()
+    def connect(self, connect_timeout=3, safe_connect=False):
+        self.connected_network = None
         for network in self.stored_networks:
-            if network['ssid'] in self.available_networks:
+            if safe_connect and not self.wlan.isconnected():
+                self.search_wlan()
+                if not network['ssid'] in self.available_networks:
+                    continue
+            if not self.wlan.isconnected():
+                log_str = "Connecting to " + network['ssid'] + "..."
+                self.log.info(log_str)
+                self.wlan.connect(network['ssid'], network['key'])
+                counter = 0
+                while True:
+                    if self.wlan.isconnected():
+                        break
+                    elif counter == 10 * connect_timeout:
+                        self.log.info("Can not connect to " + network['ssid'])
+                        break
+                    time.sleep(0.1)
+                    counter = counter + 1
                 if not self.wlan.isconnected():
-                    log_str = "Connecting to " + network['ssid'] + "..."
-                    self.log.info(log_str)
-                    self.wlan.connect(network['ssid'], network['key'])
-                    time.sleep(5)
-                else:
-                    log_str = "Already connected to: " + network['ssid']
-                    self.log.info(log_str)
-                
-                if self.wlan.isconnected():
-                    log_str = "Connected to " + network['ssid']
-                    self.log.info(log_str)
-                else:
-                    raise ConnectionError("No connection after connect call")
-        
-        if not self.wlan.isconnected():
-            raise ConnectionError("Saved networks are not available")
+                    self.wlan.active(False)
+                    self.wlan.active(True)
+                    continue
+                self.connected_network = network['ssid']
+                log_str = "Connected to " + self.connected_network
+                self.log.info(log_str)
+                return True
+            else:
+                self.connected_network = network['ssid']
+                log_str = "Already connected to " + self.connected_network
+                self.log.info(log_str)      
+                return True
+        self.log.info('Stored networks are not available')
+        return False     
     
     def disconnect(self):
-        self.log.info('Disconnect')
+        self.log.info('Disconnect from ' + self.connected_network)
+        self.connected_network = None
         self.wlan.disconnect()
 
     def deactivate(self):
+        self.connected_network = None
         self.log.info('Wlan client deactivated')
         self.wlan.active(False)
         
