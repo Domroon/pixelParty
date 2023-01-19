@@ -17,10 +17,9 @@ from lcd_api import LcdApi
 from i2c_lcd import I2cLcd
 import urequests as requests
 
-SERVER = "100.105.134.251"
+SERVER = "192.168.31.168"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
-TOPIC = b"led_matrix/#"
-TOPIC_2 = b"website_connector/#"
+
 USER = 'domroon'
 PASSWORD = 'MPCkY5DGuU19sGgpvQvgYqN8Uw0'
 MODIS = []
@@ -29,7 +28,7 @@ I2C_ADDR = 0x27
 totalRows = 2
 totalColumns = 16
 
-mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
+
 
 
 class Pixel:
@@ -535,14 +534,27 @@ class Buttons:
 
 
 class Connector:
-    def __init__(self, logger, lcd, client, server, mqtt, fallback_btn):
+    def __init__(self, logger, lcd, client, server, mqtt, fallback_btn, subscribed_topics):
         self.logger = logger
         self.lcd = lcd
         self.client = client
         self.server = server
         self.mqtt = mqtt
         self.fallback_btn = fallback_btn
+        self.subscribed_topics = subscribed_topics
         self.wlan_reconnect_timer = machine.Timer(0)
+        self.mqtt_listener_timer = machine.Timer(1)
+        self.mqtt_ping_timer = machine.Timer(2)
+        self._init_mqtt()
+
+    def _init_mqtt(self):
+        self.mqtt.set_callback(self._evaluate_mqtt_msg)
+        self.mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)
+
+    def _evaluate_mqtt_msg(self, topic, msg):
+        topic = topic.decode('utf-8')
+        msg = msg.decode('utf-8')
+        self.logger.debug(topic + ' ' + msg)
 
     def connect_wlan(self):
         self.client.activate()
@@ -553,10 +565,6 @@ class Connector:
         else:
             write_to_lcd(self.lcd, 'Not connected', 'to Access Point')
 
-        # in networking:
-        # - check for wlan loss (in timer?)
-        # - improve connect in client, it does not run well!
-
     def _reconnect(self):
         if not self.client.wlan.isconnected():
             self.logger.info('Reconnecting to Access Point...')
@@ -564,16 +572,52 @@ class Connector:
             self.client.wlan.active(True)
             self.connect_wlan()
 
+    def connect_mqtt(self, max_attempts=1):
+        attempt = 0
+        while True:
+            try:
+                self.mqtt.connect()
+                self.logger.info('Connected to MQTT Broker')
+                for topic in self.subscribed_topics:
+                    self.mqtt.subscribe(topic, qos=1)
+                self.mqtt.publish(b"led_matrix/status", "online", qos=1)
+                self.activate_mqtt_listener_timer()
+                self.activate_mqtt_ping_timer()
+                break
+            except OSError as error:
+                self.logger.debug('MQTT connect problem: ' + error)
+                self.logger.debug('Attempt ' + attempt + '/' + max_attempts)
+                if attempt == max_attempts:
+                    self.info('Can not connect to MQTT Broker after ' + max_attempts + ' attempts')
+                    break
+
     def activate_reconnect_timer(self, sleep_time=20):
         self.wlan_reconnect_timer.init(period=sleep_time*1000, mode=machine.Timer.PERIODIC, callback=lambda t: self._reconnect())
 
     def deactivate_reconnect_timer(self):
         self.wlan_reconnect_timer.deinit()
 
-    def connect_mqtt(self):
-        pass
+    def activate_mqtt_listener_timer(self):
+        self.mqtt_listener_timer.init(period=100, mode=machine.Timer.PERIODIC, callback=lambda t: self.mqtt.check_msg())
 
+    def deactivate_mqtt_listener_timer(self):
+        self.mqtt_listener_timer.deinit()
 
+    def activate_mqtt_ping_timer(self):
+        self.mqtt_ping_timer.init(period=9000, mode=machine.Timer.PERIODIC, callback=lambda t: self.mqtt.ping())
+
+    def deactivate_mqtt_listener_timer(self):
+        self.mqtt_ping_timer.deinit()
+
+    def start(self):
+        self.connect_wlan()
+        if self.client.wlan.isconnected():
+            self.logger.info('Connect to MQTT Broker')
+            self.connect_mqtt()
+        else:
+            self.logger.info('Not connected to MQTT Broker')
+
+    
 class Display:
     pass
 
@@ -615,13 +659,6 @@ def evaluate_message(topic, msg):
         MODIS.append({'weather': msg})
 
 
-def start_timers():
-    tim0 = machine.Timer(0)
-    tim0.init(period=100, mode=machine.Timer.PERIODIC, callback=lambda t: mqtt.check_msg())
-    tim1 = machine.Timer(1)
-    tim1.init(period=9000, mode=machine.Timer.PERIODIC, callback=lambda t: mqtt.ping())
-
-
 def main():
     # up_btn = Button('up', Pin(36, Pin.IN))
     # down_btn = Button('down', Pin(39, Pin.IN))
@@ -644,73 +681,37 @@ def main():
     logger = Logger(log_level=DEBUG)
     client = Client(logger)
     server = Server(logger)
+    mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
 
     connector = Connector(logger,
                             lcd,
                             client,
                             server,
                             mqtt,
-                            fallback_btn)
-
-    connector.connect_wlan()
-    connector.activate_reconnect_timer()
-
-    # while True:
-    #     try:
-    #         print('Try to connect to an stored available Network')
-    #         client.activate()
-    #         client.search_wlan()
-    #         client.connect()
-    #         break
-    #     except ConnectionError:
-    #         print('No stored Network available')
-    #         print('Start Fallback Hotspot')
-    #         client.deactivate()
-    #         server = Server(logger)
-    #         server.activate()
-    #         server.wait_for_connection()
-    #         server.receive_http_data()
-    #         server.deactivate()
-    #         # client.activate()
-    #         # client.search_wlan()
-    #         # client.connect()
-    #         if client.wlan.isconnected():
-    #             break
-    #         time.sleep(2)      
-
-    # lcd.clear()
-    # lcd.putstr("Connected with")
-    # lcd.move_to(0, 1)
-    # lcd.putstr("WLAN Router")
+                            fallback_btn,
+                            [b"led_matrix/#", b"website_connector/#"]
+                            )
+    connector.start()
     
-    # mqtt.set_callback(evaluate_message)
-    # mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)
-    # while True:
-    #     try:
-    #         mqtt.connect()
-    #         break
-    #     except OSError as error:
-    #         print('MQTT connect Error', error)
-    #         print('Try again in 1s...')
-    #         time.sleep(1)
-    # mqtt.subscribe(TOPIC, qos=1)
-    # mqtt.subscribe(TOPIC_2, qos=1)
-    # mqtt.publish(b"led_matrix/status", "online", qos=1)
-    
-    # start_timers()
-    
-    # WIDTH = 16
-    # HEIGHT = 16
-    # LED_QTY = WIDTH * HEIGHT
-    # pin = Pin(33, Pin.OUT)
-    # neopixel = NeoPixel(pin, LED_QTY)
-    # logger = Logger()
-    # matrix = Matrix(neopixel, [])
-    # pixelParty = PixelParty(matrix, 33)
+    WIDTH = 16
+    HEIGHT = 16
+    LED_QTY = WIDTH * HEIGHT
+    pin = Pin(33, Pin.OUT)
+    neopixel = NeoPixel(pin, LED_QTY)
+    logger = Logger()
+    matrix = Matrix(neopixel, [])
+    pixelParty = PixelParty(matrix, 33)
     
     # weather = Weather()
     # weather.get_current_weather()
 
+    try:
+        while True:
+            # pixelParty.show_text('TEST')
+            pixelParty.animation.random_color_flash()
+    except KeyboardInterrupt:
+        pixelParty.matrix.clear()
+        pixelParty.matrix.delete_sprite_groups()
     # try:
     #     while True:
     #         for item in MODIS:
