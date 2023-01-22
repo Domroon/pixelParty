@@ -17,18 +17,19 @@ from lcd_api import LcdApi
 from i2c_lcd import I2cLcd
 import urequests as requests
 
+# CONNECTOR Variables
 SERVER = "192.168.31.168"
 CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
-
 USER = 'domroon'
 PASSWORD = 'MPCkY5DGuU19sGgpvQvgYqN8Uw0'
+
+# MODUS Objects
 MODIS = []
 
+# LCD Variables
 I2C_ADDR = 0x27
 totalRows = 2
 totalColumns = 16
-
-
 
 
 class Pixel:
@@ -513,8 +514,8 @@ class Button:
 
 
 class Buttons:
-    def __init__(self):
-        self.buttons = {}
+    def __init__(self, buttons={}):
+        self.buttons = buttons
 
     def add_button(self, button):
         self.buttons[button.name] = button.pin
@@ -621,6 +622,42 @@ class Connector:
 class Display:
     pass
 
+class Modus:
+    pass
+
+class LCD:
+    pass
+
+class ConfigParser:
+    def __init__(self):
+        self.data = {}
+
+    def read(self, file_path):
+        current_section = None
+        with open(file_path, 'r') as file:
+            for line in file:
+                if '[' in line:
+                    line = line.replace('[', '').replace(']', '')
+                    current_section = line.replace('\r\n', '')
+                    self.data[current_section] = {}
+                else:
+                    if line in ['\n', '\r\n']:
+                        pass
+                    else:
+                        key_and_value = line.split('=')
+                        key = key_and_value[0]
+                        value = key_and_value[1].replace('\r\n', '')
+                        self.data[current_section][key] = value
+
+    def write(self, file_path):
+        with open(file_path, 'w') as file:
+            for key, value in self.data.items():
+                file.write(f'[{key}]\r\n')
+                for key_2, value_2 in value.items():
+                    file.write(f'{key_2}={value_2}\r\n')
+                file.write('\n')
+
+
 
 def write_to_lcd(lcd, line_1, line_2):
     lcd.clear()
@@ -660,6 +697,23 @@ def evaluate_message(topic, msg):
 
 
 def main():
+    print('Start Pixel Party Master')
+    print('Read Configuration File')
+    config = ConfigParser()
+    config.read('master_data.config')
+
+    buttons = Buttons()
+    for name, pin in config.data['buttons'].items():
+        buttons.add_button(Button(name, pin))
+
+    print(buttons.buttons)
+
+    # Matrix Variables
+    # WIDTH = 16
+    # HEIGHT = 16
+    # LED_QTY = WIDTH * HEIGHT
+    # pin = Pin(33, Pin.OUT)
+
     # up_btn = Button('up', Pin(36, Pin.IN))
     # down_btn = Button('down', Pin(39, Pin.IN))
     # left_btn = Button('left', Pin(34, Pin.IN))
@@ -669,49 +723,45 @@ def main():
     # buttons = Buttons()
     # buttons.add_button(fallback_btn)
 
-    print('Start Pixel Party Master')
-    fallback_btn = Button('fallback', Pin(27, Pin.IN))
+    # fallback_btn = Button('fallback', Pin(27, Pin.IN))
 
-    i2c = SoftI2C(scl=Pin(25), sda=Pin(26), freq=10000)
-    lcd = I2cLcd(i2c, I2C_ADDR, totalRows, totalColumns)
-    lcd.putstr("Start Pixel")
-    lcd.move_to(0, 1)
-    lcd.putstr("Party Master")
+    # i2c = SoftI2C(scl=Pin(25), sda=Pin(26), freq=10000)
+    # lcd = I2cLcd(i2c, I2C_ADDR, totalRows, totalColumns)
+    # lcd.putstr("Start Pixel")
+    # lcd.move_to(0, 1)
+    # lcd.putstr("Party Master")
     
-    logger = Logger(log_level=DEBUG)
-    client = Client(logger)
-    server = Server(logger)
-    mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
+    # logger = Logger(log_level=DEBUG)
+    # client = Client(logger)
+    # server = Server(logger)
+    # mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
 
-    connector = Connector(logger,
-                            lcd,
-                            client,
-                            server,
-                            mqtt,
-                            fallback_btn,
-                            [b"led_matrix/#", b"website_connector/#"]
-                            )
-    connector.start()
+    # connector = Connector(logger,
+    #                         lcd,
+    #                         client,
+    #                         server,
+    #                         mqtt,
+    #                         fallback_btn,
+    #                         [b"led_matrix/#", b"website_connector/#"]
+    #                         )
+    # connector.start()
     
-    WIDTH = 16
-    HEIGHT = 16
-    LED_QTY = WIDTH * HEIGHT
-    pin = Pin(33, Pin.OUT)
-    neopixel = NeoPixel(pin, LED_QTY)
-    logger = Logger()
-    matrix = Matrix(neopixel, [])
-    pixelParty = PixelParty(matrix, 33)
     
-    # weather = Weather()
-    # weather.get_current_weather()
+    # neopixel = NeoPixel(pin, LED_QTY)
+    # logger = Logger()
+    # matrix = Matrix(neopixel, [])
+    # pixelParty = PixelParty(matrix, 33)
+    
+    # # weather = Weather()
+    # # weather.get_current_weather()
 
-    try:
-        while True:
-            # pixelParty.show_text('TEST')
-            pixelParty.animation.random_color_flash()
-    except KeyboardInterrupt:
-        pixelParty.matrix.clear()
-        pixelParty.matrix.delete_sprite_groups()
+    # try:
+    #     while True:
+    #         # pixelParty.show_text('TEST')
+    #         pixelParty.animation.random_color_flash()
+    # except KeyboardInterrupt:
+    #     pixelParty.matrix.clear()
+    #     pixelParty.matrix.delete_sprite_groups()
     # try:
     #     while True:
     #         for item in MODIS:
