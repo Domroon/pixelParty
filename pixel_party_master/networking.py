@@ -37,21 +37,28 @@ class Client:
         self.wlan = network.WLAN(network.STA_IF)
         self.log = logger
         self.available_networks = []
-        self.stored_networks = []
+        self.config_networks = []
         self.connected_network = None
 
-    def read_stored_networks(self):
-        self.stored_networks.clear()
-        with open("stored_networks.txt", 'r') as file:
-            lines = file.read().splitlines()
-            for line in lines:
-                value = line.split('|')
-                if value[1] == 'None':
-                    value[1] = None
-                self.stored_networks.append({'ssid': value[0], 'key': value[1]})
+    def add_config_networks(self, networks_dict):
+        self.config_networks.clear()
+        ap_qty = len(networks_dict) / 2
+        for ap_num in range(ap_qty):
+            self.config_networks.append(
+                {'ssid': networks_dict[f'ap{ap_num}.ssid'], 'key': networks_dict[f'ap{ap_num}.pw']})
+
+    # def read_stored_networks(self):
+    #     self.stored_networks.clear()
+    #     with open("stored_networks.txt", 'r') as file:
+    #         lines = file.read().splitlines()
+    #         for line in lines:
+    #             value = line.split('|')
+    #             if value[1] == 'None':
+    #                 value[1] = None
+    #             self.stored_networks.append({'ssid': value[0], 'key': value[1]})
             
-            for network in self.stored_networks:
-                self.log.debug("Stored Network: " + network['ssid'])
+    #         for network in self.stored_networks:
+    #             self.log.debug("Stored Network: " + network['ssid'])
 
     def activate(self):
         self.wlan.active(True)
@@ -66,7 +73,7 @@ class Client:
 
     def connect(self, connect_timeout=3, safe_connect=False):
         self.connected_network = None
-        for network in self.stored_networks:
+        for network in self.config_networks:
             if safe_connect and not self.wlan.isconnected():
                 self.search_wlan()
                 if not network['ssid'] in self.available_networks:
@@ -172,7 +179,7 @@ class Server:
         for value_variable in variables_with_values:
             variable = value_variable.split('=')
             data_dict[variable[0]] = variable[1]
-        print(data_dict)
+        # print(data_dict)
         return data_dict
             
     def receive_http_data(self):
@@ -212,10 +219,10 @@ class Server:
                 if 'Referer' in h:
                     try:
                         data_dict = self._extract_variables(h)
-                        with open('stored_networks.txt', 'a') as f:
-                            f.write('\n' + data_dict['ssid'] + '|' + data_dict['password'])
+                        # with open('stored_networks.txt', 'a') as f:
+                        #     f.write('\n' + data_dict['ssid'] + '|' + data_dict['password'])
                         run = False
-                        break
+                        return data_dict
                     except IndexError:
                         print('No data in text-fields')
             

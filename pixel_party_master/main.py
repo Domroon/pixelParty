@@ -240,10 +240,10 @@ class Matrix:
 
 
 class Animation:
-    def __init__(self, pin_num, width=16, height=16):
+    def __init__(self, pin, width=16, height=16):
         self.width = width
         self.height = height
-        self.pin = Pin(pin_num, Pin.OUT)
+        self.pin = pin
         self.np = NeoPixel(self.pin, width*height)
         self.tick = 0.1
 
@@ -312,12 +312,12 @@ class Animation:
 
 
 class PixelParty:
-    def __init__(self, matrix, pin_num):
-        self.pin = Pin(pin_num, Pin.OUT)
+    def __init__(self, matrix, pin):
+        self.pin = pin
         self.matrix = matrix
         self.tick = 0.1
         self.rtc = RTC()
-        self.animation = Animation(pin_num)
+        self.animation = Animation(pin)
         self.modis = []
 
     def _reset_matrix(self):
@@ -446,13 +446,13 @@ class Clock:
 
 
 class Weather:
-    def __init__(self):
-        self.base_url = "https://api.openweathermap.org/data/2.5/weather?"
-        self.owm_key = "3a9a45b1d4bcf93686f67e679d86e263"
-        self.owm_lat = "51.44328996681601"
-        self.owm_lon = "7.353236392707616"
-        self.owm_units = "metric"
-        self.owm_lang = "de"
+    def __init__(self, base_url, owm_key, owm_lat, owm_lon, owm_units, owm_lang):
+        self.base_url = base_url
+        self.owm_key = owm_key
+        self.owm_lat = owm_lat
+        self.owm_lon = owm_lon
+        self.owm_units = owm_units
+        self.owm_lang = owm_lang
         self.weather_data = None
 
     def get_current_weather(self):
@@ -465,9 +465,6 @@ class Weather:
         url = self.base_url + lat + lon + key + units + lang
         res = requests.get(url)
         self.weather_data = json.loads(res.text)
-        print('current weather: ')
-        for key, value in self.weather_data['weather'][0].items():
-            print(key, ': ',value)
 
     def get_weather_icon_name(self):
         weather_data = self.weather_data['weather'][0]
@@ -508,9 +505,9 @@ class Weather:
 
 
 class Button:
-    def __init__(self, name, pin):
+    def __init__(self, name, pin_num):
         self.name = name
-        self.pin = pin
+        self.pin_num = pin_num
 
 
 class Buttons:
@@ -518,7 +515,7 @@ class Buttons:
         self.buttons = buttons
 
     def add_button(self, button):
-        self.buttons[button.name] = button.pin
+        self.buttons[button.name] = Pin(int(button.pin_num), Pin.IN)
 
     def add_buttons(self, buttons):
         for button in buttons:
@@ -559,12 +556,16 @@ class Connector:
 
     def connect_wlan(self):
         self.client.activate()
-        self.client.read_stored_networks()
+        # self.client.read_stored_networks()
         connected = self.client.connect()
         if connected:
             write_to_lcd(self.lcd, 'Connected to', self.client.connected_network)
         else:
             write_to_lcd(self.lcd, 'Not connected', 'to Access Point')
+
+    def disconnect_wlan(self):
+        self.client.disconnect()
+        self.client.deactivate()
 
     def _reconnect(self):
         if not self.client.wlan.isconnected():
@@ -586,11 +587,16 @@ class Connector:
                 self.activate_mqtt_ping_timer()
                 break
             except OSError as error:
-                self.logger.debug('MQTT connect problem: ' + error)
-                self.logger.debug('Attempt ' + attempt + '/' + max_attempts)
+                self.logger.debug('MQTT connect problem: ' + str(error))
+                self.logger.debug('Attempt ' + str(attempt) + '/' + str(max_attempts))
                 if attempt == max_attempts:
                     self.info('Can not connect to MQTT Broker after ' + max_attempts + ' attempts')
                     break
+    def disconnect_mqtt(self):
+        self.deactivate_mqtt_listener_timer()
+        self.deactivate_mqtt_ping_timer()
+        self.mqtt.disconnect()
+        self.logger.info('Disconnected from MQTT Broker')
 
     def activate_reconnect_timer(self, sleep_time=20):
         self.wlan_reconnect_timer.init(period=sleep_time*1000, mode=machine.Timer.PERIODIC, callback=lambda t: self._reconnect())
@@ -607,7 +613,7 @@ class Connector:
     def activate_mqtt_ping_timer(self):
         self.mqtt_ping_timer.init(period=9000, mode=machine.Timer.PERIODIC, callback=lambda t: self.mqtt.ping())
 
-    def deactivate_mqtt_listener_timer(self):
+    def deactivate_mqtt_ping_timer(self):
         self.mqtt_ping_timer.deinit()
 
     def start(self):
@@ -697,71 +703,82 @@ def evaluate_message(topic, msg):
 
 
 def main():
-    print('Start Pixel Party Master')
-    print('Read Configuration File')
     config = ConfigParser()
     config.read('master_data.config')
 
     buttons = Buttons()
     for name, pin in config.data['buttons'].items():
         buttons.add_button(Button(name, pin))
+    i2c = SoftI2C(
+        scl=Pin(int(config.data['lcd']['scl_pin'])),
+        sda=Pin(int(config.data['lcd']['sda_pin'])),
+        freq=10000)
+    lcd = I2cLcd(
+        i2c,
+        int(config.data['lcd']['i2c_addr']),
+        int(config.data['lcd']['total_rows']), 
+        int(config.data['lcd']['total_columns']))
+    logger = Logger(log_level=DEBUG)
+    client = Client(logger)
+    client.add_config_networks(config.data['network'])
+    server = Server(logger)
+    mqtt = MQTTClient(
+        config.data['mqtt']['client_id'], 
+        config.data['mqtt']['broker_ip'], 
+        user=config.data['mqtt']['user'], 
+        password=config.data['mqtt']['password'], 
+        port=1884, 
+        keepalive=10)
+    connector = Connector(
+        logger,
+        lcd,
+        client,
+        server,
+        mqtt,
+        buttons.buttons['fallback'],
+        [b"led_matrix/#", b"website_connector/#"])
+    led_qty = int(config.data['matrix']['width']) * int(config.data['matrix']['height'])
+    matrix_pin = Pin(int(config.data['matrix']['gpio_pin']), Pin.OUT)
+    neopixel = NeoPixel(matrix_pin, led_qty)
+    logger = Logger()
+    matrix = Matrix(neopixel, [])
+    pixelParty = PixelParty(matrix, matrix_pin)
+    weather = Weather(
+        config.data['weather']['base_url'],
+        config.data['weather']['owm_key'],
+        config.data['weather']['owm_lat'],
+        config.data['weather']['owm_lon'],
+        config.data['weather']['owm_units'],
+        config.data['weather']['owm_lang'])
 
-    print(buttons.buttons)
+    print('Start Pixel Party Master')
+    print('Read Configuration File')
+    write_to_lcd(lcd, "Start Pixel", "Party Master")
+    connector.start()
+    weather.get_current_weather()
+    print('current weather: ')
+    for key, value in weather.weather_data['weather'][0].items():
+        print(key, ': ',value)
 
-    # Matrix Variables
-    # WIDTH = 16
-    # HEIGHT = 16
-    # LED_QTY = WIDTH * HEIGHT
-    # pin = Pin(33, Pin.OUT)
+    try:
+        while True:
+            # pixelParty.show_text('TEST')
+            # pixelParty.animation.color_change()
+            if buttons.buttons['fallback'].value():
+                connector.disconnect_mqtt()
+                connector.disconnect_wlan()
+                server.activate()
+                server.wait_for_connection()
+                data = server.receive_http_data()
+                print(data, type(data))
 
-    # up_btn = Button('up', Pin(36, Pin.IN))
-    # down_btn = Button('down', Pin(39, Pin.IN))
-    # left_btn = Button('left', Pin(34, Pin.IN))
-    # right_btn = Button('right', Pin(35, Pin.IN))
-    # enter_btn = Button('enter', Pin(32, Pin.IN))
+                server.deactivate()
+                connector.start()
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        pixelParty.matrix.clear()
+        pixelParty.matrix.delete_sprite_groups()
 
-    # buttons = Buttons()
-    # buttons.add_button(fallback_btn)
-
-    # fallback_btn = Button('fallback', Pin(27, Pin.IN))
-
-    # i2c = SoftI2C(scl=Pin(25), sda=Pin(26), freq=10000)
-    # lcd = I2cLcd(i2c, I2C_ADDR, totalRows, totalColumns)
-    # lcd.putstr("Start Pixel")
-    # lcd.move_to(0, 1)
-    # lcd.putstr("Party Master")
-    
-    # logger = Logger(log_level=DEBUG)
-    # client = Client(logger)
-    # server = Server(logger)
-    # mqtt = MQTTClient(CLIENT_ID, SERVER, user=USER, password=PASSWORD, port=1884, keepalive=10)
-
-    # connector = Connector(logger,
-    #                         lcd,
-    #                         client,
-    #                         server,
-    #                         mqtt,
-    #                         fallback_btn,
-    #                         [b"led_matrix/#", b"website_connector/#"]
-    #                         )
-    # connector.start()
-    
-    
-    # neopixel = NeoPixel(pin, LED_QTY)
-    # logger = Logger()
-    # matrix = Matrix(neopixel, [])
-    # pixelParty = PixelParty(matrix, 33)
-    
-    # # weather = Weather()
-    # # weather.get_current_weather()
-
-    # try:
-    #     while True:
-    #         # pixelParty.show_text('TEST')
-    #         pixelParty.animation.random_color_flash()
-    # except KeyboardInterrupt:
-    #     pixelParty.matrix.clear()
-    #     pixelParty.matrix.delete_sprite_groups()
     # try:
     #     while True:
     #         for item in MODIS:
