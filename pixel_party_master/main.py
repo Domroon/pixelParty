@@ -619,7 +619,7 @@ class Connector:
     def start(self):
         self.connect_wlan()
         if self.client.wlan.isconnected():
-            self.logger.info('Connect to MQTT Broker')
+            self.logger.info(f'Connect to MQTT Broker {self.mqtt.server}')
             self.connect_mqtt()
         else:
             self.logger.info('Not connected to MQTT Broker')
@@ -662,6 +662,13 @@ class ConfigParser:
                 for key_2, value_2 in value.items():
                     file.write(f'{key_2}={value_2}\r\n')
                 file.write('\n')
+
+    def search_seaction_for_key(self, searched_key):
+        for section_name, section_data in self.data.items():
+            for key in section_data.keys():
+                if searched_key == key:
+                    return section_name
+        return None
 
 
 
@@ -762,19 +769,19 @@ def main():
 
     try:
         while True:
-            # pixelParty.show_text('TEST')
+            # pixelParty.animation.random_color_flash()
             # pixelParty.animation.color_change()
             if buttons.buttons['fallback'].value():
                 connector.disconnect_mqtt()
                 connector.disconnect_wlan()
                 server.activate()
                 server.wait_for_connection()
-                data = server.receive_http_data()
-                print(data, type(data))
-
-                server.deactivate()
-                connector.start()
-            time.sleep(0.1)
+                data = server.receive_http_data(config.data)
+                logger.debug(data)
+                for key, value in data.items():
+                    config.data[config.search_seaction_for_key(key)][key] = value
+                config.write('master_data.config')
+                machine.reset()
     except KeyboardInterrupt:
         pixelParty.matrix.clear()
         pixelParty.matrix.delete_sprite_groups()

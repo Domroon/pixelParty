@@ -179,10 +179,16 @@ class Server:
         for value_variable in variables_with_values:
             variable = value_variable.split('=')
             data_dict[variable[0]] = variable[1]
-        # print(data_dict)
         return data_dict
-            
-    def receive_http_data(self):
+    
+    def inject_dict(self, html, dict_data):
+        html = html.decode()
+        for key, value in dict_data.items():
+            string_pattern = '%{' + str(key) + '}'
+            html = html.replace(string_pattern, value)
+        return html.encode()
+
+    def receive_http_data(self, inject_dict):
         s = socket.socket()
         address_info = socket.getaddrinfo('0.0.0.0', 80)
         # self.log.debug('Bind address info: ' + address_info)
@@ -219,8 +225,6 @@ class Server:
                 if 'Referer' in h:
                     try:
                         data_dict = self._extract_variables(h)
-                        # with open('stored_networks.txt', 'a') as f:
-                        #     f.write('\n' + data_dict['ssid'] + '|' + data_dict['password'])
                         run = False
                         return data_dict
                     except IndexError:
@@ -228,6 +232,8 @@ class Server:
             
             with open('html_data/index.html', 'r') as file:
                 data = file.read().encode()
+                for section_dict in inject_dict.values():
+                    data = self.inject_dict(data, section_dict)
                 client_stream.write(data)
 
             client_stream.close()
