@@ -564,7 +564,10 @@ class Connector:
             write_to_lcd(self.lcd, 'Not connected', 'to Access Point')
 
     def disconnect_wlan(self):
-        self.client.disconnect()
+        try:
+            self.client.disconnect()
+        except TypeError:
+            self.logger.debug('No Access Point is connected')
         self.client.deactivate()
 
     def _reconnect(self):
@@ -590,6 +593,8 @@ class Connector:
             self.mqtt.disconnect()
         except OSError as error:
             self.logger.warning('Not connected to MQTT Broker: ' + str(error))
+        except AttributeError:
+            pass
         self.logger.info('Disconnected from MQTT Broker')
 
     def activate_reconnect_timer(self, sleep_time=20):
