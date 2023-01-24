@@ -779,10 +779,10 @@ def main():
     print('Read Configuration File')
     write_to_lcd(lcd, "Start Pixel", "Party Master")
     connector.start()
-    weather.get_current_weather()
-    print('current weather: ')
-    for key, value in weather.weather_data['weather'][0].items():
-        print(key, ': ',value)
+    # weather.get_current_weather()
+    # print('current weather: ')
+    # for key, value in weather.weather_data['weather'][0].items():
+    #     print(key, ': ',value)
 
     try:
         while True:

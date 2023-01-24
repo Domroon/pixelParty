@@ -30,6 +30,11 @@
         align-items: center;
         justify-content: center;
         height: 100vh;
+        padding: 1rem;
+      }
+
+      .content {
+        padding: 5rem;
       }
 
       .input-field {
@@ -68,6 +73,36 @@
         <h1>LED MATRIX</h1>
 
         <form method="get">
+          <section>
+            <h2>Network</h2>
+            <h3>Access Point 0</h3>
+            <div class="input-field">
+              <label for="fname">SSID</label>
+              <input type="text" name="ap0.ssid" value="%{ap0.ssid}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Password</label>
+              <input type="text" name="ap0.pw" value="%{ap0.pw}" />
+            </div>
+            <h3>Access Point 1</h3>
+            <div class="input-field">
+              <label for="fname">SSID</label>
+              <input type="text" name="ap1.ssid" value="%{ap1.ssid}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Password</label>
+              <input type="text" name="ap1.pw" value="%{ap1.pw}" />
+            </div>
+            <h3>Access Point 2</h3>
+            <div class="input-field">
+              <label for="fname">SSID</label>
+              <input type="text" name="ap2.ssid" value="%{ap2.ssid}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Password</label>
+              <input type="text" name="ap2.pw" value="%{ap2.pw}" />
+            </div>
+          </section>
           <section>
             <h2>MQTT</h2>
             <div class="input-field">
