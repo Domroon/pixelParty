@@ -598,14 +598,32 @@ class Connector:
     def deactivate_reconnect_timer(self):
         self.wlan_reconnect_timer.deinit()
 
+    def _mqtt_check_msg(self):
+        try:
+            self.mqtt.check_msg()
+        except OSError as error:
+            self.logger.warning('Lost connection to MQTT Broker: ' + str(error))
+            self.logger.debug('Deactivate mqtt listener and ping timer')
+            self.deactivate_mqtt_listener_timer()
+            self.deactivate_mqtt_ping_timer()
+
     def activate_mqtt_listener_timer(self):
-        self.mqtt_listener_timer.init(period=100, mode=machine.Timer.PERIODIC, callback=lambda t: self.mqtt.check_msg())
+        self.mqtt_listener_timer.init(period=100, mode=machine.Timer.PERIODIC, callback=lambda t: self._mqtt_check_msg())
 
     def deactivate_mqtt_listener_timer(self):
         self.mqtt_listener_timer.deinit()
 
+    def _mqtt_ping(self):
+        try:
+            self.mqtt.ping()
+        except OSError as error:
+            self.logger.warning('Lost connection to MQTT Broker: ' + str(error))
+            self.logger.debug('Deactivate mqtt listener and ping timer')
+            self.deactivate_mqtt_listener_timer()
+            self.deactivate_mqtt_ping_timer()
+
     def activate_mqtt_ping_timer(self):
-        self.mqtt_ping_timer.init(period=9000, mode=machine.Timer.PERIODIC, callback=lambda t: self.mqtt.ping())
+        self.mqtt_ping_timer.init(period=9000, mode=machine.Timer.PERIODIC, callback=lambda t: self._mqtt_ping())
 
     def deactivate_mqtt_ping_timer(self):
         self.mqtt_ping_timer.deinit()
