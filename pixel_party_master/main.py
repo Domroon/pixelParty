@@ -574,28 +574,22 @@ class Connector:
             self.client.wlan.active(True)
             self.connect_wlan()
 
-    def connect_mqtt(self, max_attempts=1):
-        attempt = 0
-        while True:
-            try:
-                self.mqtt.connect()
-                self.logger.info('Connected to MQTT Broker')
-                for topic in self.subscribed_topics:
-                    self.mqtt.subscribe(topic, qos=1)
-                self.mqtt.publish(b"led_matrix/status", "online", qos=1)
-                self.activate_mqtt_listener_timer()
-                self.activate_mqtt_ping_timer()
-                break
-            except OSError as error:
-                self.logger.debug('MQTT connect problem: ' + str(error))
-                self.logger.debug('Attempt ' + str(attempt) + '/' + str(max_attempts))
-                if attempt == max_attempts:
-                    self.info('Can not connect to MQTT Broker after ' + max_attempts + ' attempts')
-                    break
+    def connect_mqtt(self):
+        self.mqtt.connect()
+        self.logger.info('Connected to MQTT Broker')
+        for topic in self.subscribed_topics:
+            self.mqtt.subscribe(topic, qos=1)
+        self.mqtt.publish(b"led_matrix/status", "online", qos=1)
+        self.activate_mqtt_listener_timer()
+        self.activate_mqtt_ping_timer()
+
     def disconnect_mqtt(self):
         self.deactivate_mqtt_listener_timer()
         self.deactivate_mqtt_ping_timer()
-        self.mqtt.disconnect()
+        try:
+            self.mqtt.disconnect()
+        except OSError as error:
+            self.logger.warning('Not connected to MQTT Broker: ' + str(error))
         self.logger.info('Disconnected from MQTT Broker')
 
     def activate_reconnect_timer(self, sleep_time=20):
@@ -620,7 +614,12 @@ class Connector:
         self.connect_wlan()
         if self.client.wlan.isconnected():
             self.logger.info(f'Connect to MQTT Broker {self.mqtt.server}')
-            self.connect_mqtt()
+            try:
+                self.connect_mqtt()
+            except OSError as error:
+                self.logger.warning('MQTT Connect Problem: ' + str(error))
+                self.logger.warning('Could not connect to MQTT Broker.')
+                self.logger.warning('Maybe the Broker is not reachable or the IP is wrong?')
         else:
             self.logger.info('Not connected to MQTT Broker')
 
