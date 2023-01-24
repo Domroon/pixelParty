@@ -81,6 +81,8 @@ class Client:
             if not self.wlan.isconnected():
                 log_str = "Connecting to " + network['ssid'] + "..."
                 self.log.info(log_str)
+                if network['key'] == 'None':
+                    network['key'] = None
                 self.wlan.connect(network['ssid'], network['key'])
                 counter = 0
                 while True:
