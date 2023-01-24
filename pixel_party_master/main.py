@@ -17,20 +17,6 @@ from lcd_api import LcdApi
 from i2c_lcd import I2cLcd
 import urequests as requests
 
-# CONNECTOR Variables
-SERVER = "192.168.31.168"
-CLIENT_ID = b"matrix-" + ubinascii.hexlify(machine.unique_id())
-USER = 'domroon'
-PASSWORD = 'MPCkY5DGuU19sGgpvQvgYqN8Uw0'
-
-# MODUS Objects
-MODIS = []
-
-# LCD Variables
-I2C_ADDR = 0x27
-totalRows = 2
-totalColumns = 16
-
 
 class Pixel:
     def __init__(self, id, x, y, color=[255, 0, 255], brightness=0.1):
