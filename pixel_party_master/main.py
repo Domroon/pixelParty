@@ -812,15 +812,14 @@ def load_static_page(static_page_name, matrix, logger):
         logger.debug(f'Load Sprite {sprite.name} on position {sprite.x}|{sprite.y}')
     matrix.load_into_np_array()
     gc.collect()
+    return page.display_time
 
 
-class Page:
-    def __init__(self):
-        self.display_time = None
+def show_static_page(matrix, static_page_name):
+    matrix.show()
 
-    def load_into_matrix(self):
-        pass
 
+PAGES = ['test', 'test_2']
 
 
 def main():
@@ -880,8 +879,13 @@ def main():
     #     print(key, ': ',vaprint('current weather: ')
     # for key, value in weather.wealue)
 
-    load_static_page('test_2', matrix, logger)
+    # load_static_page('test_2', matrix, logger)
 
+    PAGES = ['test', 'test_2']
+
+    tick = 0.02
+    display_time = 0
+    page_index = 0
     try:
         while True:
             # check all buttons
@@ -897,8 +901,25 @@ def main():
                 config.write('master_data.config')
                 machine.reset()
             
-            # display things on led matrix
-            matrix.show()
+            # display static pages on led matrix
+            if display_time <= 0:
+                matrix.clear()
+                matrix.delete_sprites()
+                display_time = load_static_page(PAGES[page_index], matrix, logger)
+                page_index = page_index + 1
+                if page_index > len(PAGES) - 1:
+                    # then back to first page
+                    page_index = 0
+                matrix.show()
+
+            display_time = display_time - tick
+                # display time aus page laden und setzen falls display time 0
+                # matrix reinigen
+            # aktuelle page ladne falls display time 0 ist
+            # aktullelle page setzen falls display time nicht null ist 
+
+            # display_time - display-time - tick
+            time.sleep(tick)
     except KeyboardInterrupt:
         matrix.clear()
         matrix.delete_sprites()
