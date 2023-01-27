@@ -37,9 +37,9 @@ def calculate_sizes(pillow_img, qty_art_pixel_col):
 
 
 def main():
-    qty_art_pixel_row = 16
-    qty_art_pixel_col = 16
-    filename = 'snow'
+    qty_art_pixel_row = int(input('rows qty: '))
+    qty_art_pixel_col = int(input('columns qty: '))
+    filename = input('filename: ')
 
     with Image.open(IMAGE_PATH / f'{filename}.png') as im:
         # check for multilayer picture (rgb)
