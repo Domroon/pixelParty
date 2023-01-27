@@ -47,13 +47,17 @@ class Pixel:
 
 
 class Sprite:
-    def __init__(self, x=0, y=0):
+    def __init__(self, name, pixels_file_path, x=0, y=0):
         self.id = id(self)
+        self.name = name
+        self.pixels_file_path = pixels_file_path
         self.x = x
         self.y = y
         self.pixels = [
                         Pixel(self.id, 0, 0),
                       ]
+        self.load_pixels_file()
+        self.set_pos(self.x, self.y)
 
     def add_pixels(self, int_array):
         self.pixels = []
@@ -81,8 +85,7 @@ class Sprite:
             y += 1
         gc.collect()
         
-    
-    def read_pixels_from_file(self, filename):
+    def _read_pixels_from_file(self, filename):
         file = open(filename)
         row = []
         color_array = []
@@ -100,6 +103,12 @@ class Sprite:
             color_array.append(new_row)
         file.close()
         self.add_colored_pixels(color_array)
+
+    def load_pixels_file(self):
+        self._read_pixels_from_file(f'{self.pixels_file_path}')
+        
+    # def deinit_pixels_file(self):
+    #     self.pixels.clear()
 
     def read_pixels_from_broker(self, data):
         data_lines = data.split('\n')
@@ -163,8 +172,8 @@ class SpriteGroup:
 
 
 class Matrix:
-    def __init__(self, neopixel, sprite_groups, width=16, height=16):
-        self.sprite_groups = sprite_groups
+    def __init__(self, neopixel, sprites=[], width=16, height=16):
+        self.sprites = sprites
         self.width = width
         self.height = height
         self.led_qty = width * height
@@ -208,14 +217,16 @@ class Matrix:
             except IndexError:
                 pass
 
+    def load_into_np_array(self):
+        for sprite in self.sprites:
+            self._add_sprite(sprite)
+
     def show(self):
-        for sprite_group in self.sprite_groups:
-            for sprite in sprite_group:
-                self._add_sprite(sprite)
         self.np.write()
 
-    def delete_sprite_groups(self):
-        self.sprite_groups = []
+    def delete_sprites(self):
+        self.sprites.clear()
+        gc.collect()
         
     def clear(self):
         self.np.fill((0, 0, 0))
@@ -632,7 +643,81 @@ class Connector:
         else:
             self.logger.info('Not connected to MQTT Broker')
 
-    
+
+class StaticPage:
+    def __init__(self, name):
+        self.name = name
+        # data_structure for self.screen_objects
+        # [{'pixels_file': 'test', 'coord' : {'x': 10, 'y': 12}},
+        #  {'pixels_file': 'test_2', 'coord' : {'x': 42, 'y': 24}}]
+        self.screen_objects = []
+        self.sprites = []
+        self.display_time = None
+
+    def _create_word(self):
+        pass
+
+    def _load_sprite_names(self):
+        # load sprite names from a "self.name".static-file 
+        # to load it in self.screen_objects
+        with open(f'/static_pages_data/{self.name}.static') as file:
+            for line in file:
+                line = line.split(';')
+                if line[0] == 'display_time':
+                    self.display_time = int(line[1])
+                else:
+                    x_y = line[1].split('|')
+                    x = x_y[0].replace('\r\n', '')
+                    y = x_y[1].replace('\r\n', '')
+                    screen_type = line[2].replace('\r\n', '')
+                    size = line[3].replace('\r\n', '')
+                    screen_obj = {
+                        'pixels_file': line[0],
+                        'coord': {'x': x, 'y': y},
+                        'screen_type': screen_type,
+                        'size': size}
+                    self.screen_objects.append(screen_obj)
+
+    def add_sprite(self, name, x, y):
+        pass
+
+    def save_sprite_names(self):
+        pass
+        # write sprite names from self.screen_objects into a "self.name".static-file
+        # if self.screen_objects is Empty then dont allow to save because you eventually
+        # override existing data!
+        # you can reload it later from file system
+
+    def _create_sprite_path(self, screen_type):
+        if screen_type == 'pic':
+            return '/pixels_data/pictures'
+        elif screen_type == 'txt':
+            return '/pixels_data/texts'
+
+    def load_sprites(self):
+        self._load_sprite_names()
+        # before i have sprites in self.sprites
+        # i have to find it with the data in self.screen_objects
+        for obj in self.screen_objects:
+            try:
+                # TESTS IT!!
+                # an das sprtie objekt den richtigen pfad mitteile anhand des screen_type pfad erzeugen!
+                directory = self._create_sprite_path(obj['screen_type'])
+                path = f'{directory}/{obj["pixels_file"]}-{obj["size"]}.pixels'
+                new_sprite = Sprite(obj["pixels_file"], path, x=int(obj['coord']['x']), y=int(obj['coord']['y']))
+                self.sprites.append(new_sprite)
+            except OSError as error:
+                print(f'Problem with {obj}: {error}')
+                print('It should request the other mqtt client for the file')
+                # then try again
+                # self._read_pixels_from_file(f'{self.name}.pixels')
+
+    def clear_sprites(self):
+        self.sprites.clear()
+        gc.collect()
+
+
+
 class Display:
     pass
 
@@ -717,6 +802,27 @@ def evaluate_message(topic, msg):
         MODIS.append({'weather': msg})
 
 
+def load_static_page(static_page_name, matrix, logger):
+    logger.debug(f'Load static page {static_page_name}')
+    page = StaticPage(static_page_name)
+    page.load_sprites()
+    logger.info(f'Display time of {static_page_name}: {page.display_time}')
+    for sprite in page.sprites:
+        matrix.sprites.append(sprite)
+        logger.debug(f'Load Sprite {sprite.name} on position {sprite.x}|{sprite.y}')
+    matrix.load_into_np_array()
+    gc.collect()
+
+
+class Page:
+    def __init__(self):
+        self.display_time = None
+
+    def load_into_matrix(self):
+        pass
+
+
+
 def main():
     config = ConfigParser()
     config.read('master_data.config')
@@ -755,30 +861,30 @@ def main():
     led_qty = int(config.data['matrix']['width']) * int(config.data['matrix']['height'])
     matrix_pin = Pin(int(config.data['matrix']['gpio_pin']), Pin.OUT)
     neopixel = NeoPixel(matrix_pin, led_qty)
-    logger = Logger()
-    matrix = Matrix(neopixel, [])
-    pixelParty = PixelParty(matrix, matrix_pin)
-    weather = Weather(
-        config.data['weather']['base_url'],
-        config.data['weather']['owm_key'],
-        config.data['weather']['owm_lat'],
-        config.data['weather']['owm_lon'],
-        config.data['weather']['owm_units'],
-        config.data['weather']['owm_lang'])
+    matrix = Matrix(neopixel)
+    # pixelParty = PixelParty(matrix, matrix_pin)
+    # weather = Weather(
+    #     config.data['weather']['base_url'],
+    #     config.data['weather']['owm_key'],
+    #     config.data['weather']['owm_lat'],
+    #     config.data['weather']['owm_lon'],
+    #     config.data['weather']['owm_units'],
+    #     config.data['weather']['owm_lang'])
 
     print('Start Pixel Party Master')
     print('Read Configuration File')
     write_to_lcd(lcd, "Start Pixel", "Party Master")
     connector.start()
     # weather.get_current_weather()
-    # print('current weather: ')
-    # for key, value in weather.weather_data['weather'][0].items():
-    #     print(key, ': ',value)
+    # ther_data['weather'][0].items():
+    #     print(key, ': ',vaprint('current weather: ')
+    # for key, value in weather.wealue)
+
+    load_static_page('test_2', matrix, logger)
 
     try:
         while True:
-            # pixelParty.animation.random_color_flash()
-            # pixelParty.animation.color_change()
+            # check all buttons
             if buttons.buttons['fallback'].value():
                 connector.disconnect_mqtt()
                 connector.disconnect_wlan()
@@ -790,9 +896,12 @@ def main():
                     config.data[config.search_seaction_for_key(key)][key] = value
                 config.write('master_data.config')
                 machine.reset()
+            
+            # display things on led matrix
+            matrix.show()
     except KeyboardInterrupt:
-        pixelParty.matrix.clear()
-        pixelParty.matrix.delete_sprite_groups()
+        matrix.clear()
+        matrix.delete_sprites()
 
     # try:
     #     while True:
