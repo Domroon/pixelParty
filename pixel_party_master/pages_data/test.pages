@@ -1,0 +1,5 @@
+ani;5;20;line_top_bottom;(0,50,0)
+ani;5;20;full_color;(0,50,0)
+ani;2;50;color_change
+ani;3;10;random_color_flash
+static;5;pic,5,chess_red,12|10;pic,5,mandala,1|1;txt,5,dom,6|0

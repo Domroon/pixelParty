@@ -237,32 +237,60 @@ class Matrix:
 
 
 class Animation:
-    def __init__(self, pin, width=16, height=16):
+    def __init__(self, name, config, width, height):
+        self.name = name
+        self.pin = Pin(int(config['matrix']['gpio_pin']), Pin.OUT)
         self.width = width
         self.height = height
-        self.pin = pin
         self.np = NeoPixel(self.pin, width*height)
-        self.tick = 0.1
+        self.ani_type = None
+        self.display_time = None
+        self.color = None
+        self.frame_time = None
+        self._load_from_file()
+
+    # vielleicht so: animation einstellen
+    # dann eine show-methode welche im main loop benutzt werden kann und nich blockierend ist
+    # im main loop muss es eine zeitstopper klasse geben welche 
+    # herausfindet wie lange ein frame von der animation dauert
+    # des weiteren gilt soll time.sleep(tik) nur ausgeführt werden wenn das frame kein frame
+    # einer animation ist! 
+    def _load_from_file(self):
+        file_path = f'/animation_pages_data/{self.name}.ani'
+        with open(f'{file_path}') as file:
+            for line in file:
+                line = line.split(';')
+                if line[0] == 'line_top_bottom':
+                    self.ani_type = line[0]
+                    self.display_time = int(line[1])
+                    color_values = line[2].replace('(', '').replace(')', '').split(',')
+                    self.color = (color_values[0], color_values[1], color_values[2])
+                    self.frame_time = line[3]
+                elif line[0] == 'full_color':
+                    self.ani_type = line[0]
+                    self.display_time = line[1]
+                    color_values = line[2].replace('(', '').replace(')').split(',')
+                    self.color = (color_values[0], color_values[1], color_values[2])
+                    self.frame_time = 0.02
 
     def _clear(self):
         self.np.fill((0, 0, 0))
         self.np.write()
 
-    def line_top_bottom(self, color=(25, 25, 25)):
+    def line_top_bottom(self):
         pos = 0
         row = self.height
         while pos < 256:
             while pos < row:
-                self.np[pos] = color
+                self.np[pos] = self.color
                 pos = pos + 1
             self.np.write()
-            time.sleep(0.05)
+            # time.sleep(show_time)
             row = row + 16
             self._clear()
 
-
-    def full_color(self, color):
-        self.np.fill(color)
+    def full_color(self):
+        self.np.fill(self.color)
         self.np.write()
 
 
@@ -306,6 +334,12 @@ class Animation:
         self.np.write()
         time.sleep(0.03)
         self._clear()
+
+    def show_frame(self, color):
+        if self.ani_type == 'line_top_bottom':
+            self.line_top_bottom()
+        elif self.ani_type == 'full_color':
+            self.full_color()
 
 
 class PixelParty:
@@ -764,6 +798,83 @@ class ConfigParser:
         return None
 
 
+class DataParser:
+    def __init__(self):
+        self.data = []
+
+    def _parse_ani_data(self, params):
+        params_dict = {
+                'page_type': params[0],
+                'duration_in_s': int(params[1]),
+                'frame_time_in_ms': int(params[2])
+            }
+        if params[3] == 'line_top_bottom':
+            self._parse_ani_line_top_bottom(params, params_dict)
+        elif params[3] == 'full_color':
+            self._parse_ani_full_color(params, params_dict)
+        elif params[3] == 'color_change':
+            self._parse_ani_color_change(params, params_dict)
+        elif params[3] == 'random_color_flash':
+            self._parse_ani_random_color_flash(params, params_dict)
+        else:
+            raise Exception(f'Unknown Animation Type: {params[3]}')
+
+    def _parse_ani_line_top_bottom(self, params, params_dict):
+        params_dict['ani_name'] = params[3]
+        color = params[4].replace('(', '').replace(')', '').split(',')
+        params_dict['color'] = (color[0], color[1], color[2])
+        self.data.append(params_dict)
+
+    def _parse_ani_full_color(self, params, params_dict):
+        params_dict['ani_name'] = params[3]
+        color = params[4].replace('(', '').replace(')', '').split(',')
+        params_dict['color'] = (color[0], color[1], color[2])
+        self.data.append(params_dict)
+
+    def _parse_ani_color_change(self, params, params_dict):
+        params_dict['ani_name'] = params[3]
+        self.data.append(params_dict)
+
+    def _parse_ani_random_color_flash(self, params, params_dict):
+        params_dict['ani_name'] = params[3]
+        self.data.append(params_dict)
+
+    def _parse_static_data(self, params):
+        params_dict = {}
+        params.reverse()
+        params_dict['page_type'] = params.pop()
+        params_dict['duration_in_s'] = params.pop()
+        params_dict['pixels_data'] = []
+        params.reverse()
+        for pixel_data in params:
+            pixel_data = pixel_data.split(',')
+            x_y = pixel_data[3].split('|')
+            x = x_y[0]
+            y = x_y[1]
+            params_dict['pixels_data'].append({
+                'pixel_type': pixel_data[0],
+                'size': pixel_data[1],
+                'file_name': pixel_data[2],
+                'coordinates': {'x': x, 'y': y}
+            })
+        self.data.append(params_dict)
+
+    def read(self, file_path):
+        with open(file_path, 'r') as file:
+            for line in file:
+                params = line.split(';')
+                for index, param in enumerate(params):
+                    params[index] = param.replace('\r\n', '')
+                if params[0] == 'ani':
+                    self._parse_ani_data(params)
+                elif params[0] == 'static':
+                    self._parse_static_data(params)
+                else:
+                    raise Exception(f'Unknown Page Type: {params[0]}')
+                    
+    def write(self):
+        pass
+
 
 def write_to_lcd(lcd, line_1, line_2):
     lcd.clear()
@@ -815,11 +926,17 @@ def load_static_page(static_page_name, matrix, logger):
     return page.display_time
 
 
-def show_static_page(matrix, static_page_name):
-    matrix.show()
+def load_animation_page(animation_page_name, config, matrix, logger):
+    logger.debug(f'Load animation page {animation_page_name}')
+    animation = Animation(animation_page_name, config.data, matrix.height, matrix.width)
+    return animation
 
 
-PAGES = ['test', 'test_2']
+# def show_animation_frame(animation):
+#     if animation.animation_type == 'line_top_bottom':
+#         animation.line_top_bottom()
+#     elif animation.animation_type == 'full_color':
+#         animation.full_color()
 
 
 def main():
@@ -881,15 +998,20 @@ def main():
 
     # load_static_page('test_2', matrix, logger)
 
-    PAGES = ['test', 'test_2']
+    PAGES = [{'name': 'test', 'type': 'static'}, {'name': 'test_2', 'type': 'static'},
+            {'name': 'test_3', 'type': 'ani'}]
 
     tick = 0.02
     display_time = 0
     page_index = 0
+    last_frame_time_ms = 0
+    current_animation = None
     try:
         while True:
+            start_ticks = time.ticks_ms()
             # check all buttons
             if buttons.buttons['fallback'].value():
+                matrix.clear()
                 connector.disconnect_mqtt()
                 connector.disconnect_wlan()
                 server.activate()
@@ -902,24 +1024,64 @@ def main():
                 machine.reset()
             
             # display static pages on led matrix
-            if display_time <= 0:
+            if display_time <= 0 and PAGES[page_index]['type'] == 'static':
                 matrix.clear()
-                matrix.delete_sprites()
-                display_time = load_static_page(PAGES[page_index], matrix, logger)
+                display_time = load_static_page(PAGES[page_index]['name'], matrix, logger)
                 page_index = page_index + 1
                 if page_index > len(PAGES) - 1:
                     # then back to first page
                     page_index = 0
                 matrix.show()
+                matrix.delete_sprites()
+                time.sleep(0.02)
+            elif display_time > 0 and PAGES[page_index]['type'] == 'static':
+                time.sleep(0.02)
+            elif display_time <= 0 and PAGES[page_index]['type'] == 'ani':
+                print(page_index - 1)
+                print('ANIMATION TIME')
+                matrix.clear()
+                current_animation = load_animation_page(PAGES[page_index]['name'], config, matrix, logger)
+                print('current_ani_name: ', current_animation.name)
+                display_time = current_animation.display_time
+                page_index = page_index + 1
+                if page_index > len(PAGES) - 1:
+                        # then back to first page
+                        page_index = 0
+                time.sleep(0.02)
+            elif display_time > 0 and PAGES[page_index - 1]['type'] == 'ani':
+                # WARUM WIRD ANIMATION NICHT ANGEZEIGT????
+                print('type: ', PAGES[page_index]['type'])
+                current_animation.show_frame()
+                time.sleep(current_animation.frame_time)            
 
-            display_time = display_time - tick
+            # if display_time <= 0:
+            #     page_index = page_index + 1
+            #     if page_index > len(PAGES) - 1:
+            #         # then back to first page
+            #         page_index = 0
+                    
+
+
+            # nur wenn es um statische seiten geht ist tick abziehen fast richtig
+            # bei animationen kommen noch animationszeiten dazu 
+            # bzw. animation-klasse muss so umprogrammiert werden, dass sie immer
+            # ein bild zeigt und dann die funktion freigeben muss um den main loop nicht
+            # zu blockieren, danach dann nächstes bild usw.
+            # matrix.show auch nur dann ausführen wenn die aktuelle page eine statische seite ist
+            # eine animations-page muss selbst das neopixel-array beschreiben!
+            
                 # display time aus page laden und setzen falls display time 0
                 # matrix reinigen
             # aktuelle page ladne falls display time 0 ist
             # aktullelle page setzen falls display time nicht null ist 
 
-            # display_time - display-time - tick
-            time.sleep(tick)
+            
+            # print('page_index: ', page_index)
+            # print('display_time: ', display_time)
+            # print('type: ', PAGES[page_index]['type'] )
+            
+            last_frame_time_ms = time.ticks_diff(time.ticks_ms(), start_ticks)
+            display_time = display_time - (last_frame_time_ms/1000)
     except KeyboardInterrupt:
         matrix.clear()
         matrix.delete_sprites()
@@ -959,5 +1121,11 @@ def main():
     #     pixelParty.matrix.clear()
     #     pixelParty.matrix.delete_sprite_groups()
 
+def test():
+    data = DataParser()
+    data.read('/pages_data/test.pages')
+    print(data.data)
+
 if __name__ == '__main__':
-    main()
+    # main()
+    test()
