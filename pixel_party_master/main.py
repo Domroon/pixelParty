@@ -237,86 +237,99 @@ class Matrix:
 
 
 class Animation:
-    def __init__(self, name, config, width, height):
-        self.name = name
-        self.pin = Pin(int(config['matrix']['gpio_pin']), Pin.OUT)
-        self.width = width
-        self.height = height
-        self.np = NeoPixel(self.pin, width*height)
-        self.ani_type = None
+    def __init__(self, config, ani_dict):
+        self.pin = Pin(int(config.data['matrix']['gpio_pin']), Pin.OUT)
+        self.width = int(config.data['matrix']['width'])
+        self.height = int(config.data['matrix']['height'])
+        self.np = NeoPixel(self.pin, self.width*self.height)
+        self.ani_name = None
         self.display_time = None
         self.color = None
         self.frame_time = None
-        self._load_from_file()
+        self._load_from_dict(ani_dict)
 
-    # vielleicht so: animation einstellen
-    # dann eine show-methode welche im main loop benutzt werden kann und nich blockierend ist
-    # im main loop muss es eine zeitstopper klasse geben welche 
-    # herausfindet wie lange ein frame von der animation dauert
-    # des weiteren gilt soll time.sleep(tik) nur ausgeführt werden wenn das frame kein frame
-    # einer animation ist! 
-    def _load_from_file(self):
-        file_path = f'/animation_pages_data/{self.name}.ani'
-        with open(f'{file_path}') as file:
-            for line in file:
-                line = line.split(';')
-                if line[0] == 'line_top_bottom':
-                    self.ani_type = line[0]
-                    self.display_time = int(line[1])
-                    color_values = line[2].replace('(', '').replace(')', '').split(',')
-                    self.color = (color_values[0], color_values[1], color_values[2])
-                    self.frame_time = line[3]
-                elif line[0] == 'full_color':
-                    self.ani_type = line[0]
-                    self.display_time = line[1]
-                    color_values = line[2].replace('(', '').replace(')').split(',')
-                    self.color = (color_values[0], color_values[1], color_values[2])
-                    self.frame_time = 0.02
+        # animation specific attributes
+
+        # line_top_bottom
+        self.pos = 0
+        self.row = self.height
+
+        # color_change
+        self.red = 0
+        self.green = 0
+        self.blue = 0
+        self.phase_1 = True
+        self.phase_2 = False
+        self.phase_3 = False
+
+
+    def _load_from_dict(self, ani_dict):
+        self.display_time = ani_dict['duration_in_ms']
+        self.frame_time = ani_dict['frame_time_in_ms']
+        self.ani_name = ani_dict['ani_name']
+        try:
+            self.color = ani_dict['color']
+        except KeyError:
+            pass
 
     def _clear(self):
         self.np.fill((0, 0, 0))
         self.np.write()
 
     def line_top_bottom(self):
-        pos = 0
-        row = self.height
-        while pos < 256:
-            while pos < row:
-                self.np[pos] = self.color
-                pos = pos + 1
+        if self.pos < self.height * self.width:
+            while self.pos < self.row:
+                self.np[self.pos] = self.color
+                self.pos = self.pos + 1
             self.np.write()
-            # time.sleep(show_time)
-            row = row + 16
+            self.row = self.row + self.width
+            expected_writing_time = 24
+            time.sleep_ms(self.frame_time - expected_writing_time)
             self._clear()
+        else: 
+            self.pos = 0
+            self.row = self.height
 
     def full_color(self):
         self.np.fill(self.color)
         self.np.write()
 
-
     def full_fade_in(self):
-        for brightness in range (0, 100):
+        for brightness in range(0, 100):
             self.np.fill((brightness, 0, 0))
             self.np.write()
             time.sleep(0.01)
             
     def color_change(self):
-        for red in range (0, 100):
-            self.np.fill((red, 0, 0))
+        if self.phase_1:
+            self.red = self.red + 1
+            self.np.fill((self.red, 0, 0))
             self.np.write()
-            time.sleep(0.005)
-        red = 100
-        for green in range (0, 100):
-            self.np.fill((red, green, 0))
+            time.sleep_ms(self.frame_time)
+            if self.red >= 100:
+                self.phase_1 = False
+                self.phase_2 = True
+        elif self.phase_2:
+            self.green = self.green + 1
+            self.red = self.red - 1
+            self.np.fill((self.red, self.green, 0))
             self.np.write()
-            time.sleep(0.05)
-            red = red - 1
-        green = 100
-        for blue in range (0, 100):
-            self.np.fill((0, green, blue))
+            time.sleep_ms(self.frame_time)
+            if self.green >= 100:
+                self.phase_2 = False
+                self.phase_3 = True
+        elif self.phase_3:
+            self.blue = self.blue + 1
+            self.green = self.green - 1
+            self.np.fill((0, self.green, self.blue))
             self.np.write()
-            time.sleep(0.05)
-            green = green - 1
+            time.sleep_ms(self.frame_time)
+            if self.blue >= 100:
+                self.phase_3 = False
+                self.phase_1 = True
+                self.red = 0
+                self.green = 0
+                self.blue = 0
 
     def random_colors(self):
         for pos in range(0, 256):
@@ -335,12 +348,20 @@ class Animation:
         time.sleep(0.03)
         self._clear()
 
-    def show_frame(self, color):
-        if self.ani_type == 'line_top_bottom':
+    def show_frame(self):
+        if self.ani_name == 'line_top_bottom':
             self.line_top_bottom()
-        elif self.ani_type == 'full_color':
+        elif self.ani_name == 'full_color':
             self.full_color()
-
+        elif self.ani_name == 'full_fade_in':
+            self.full_fade_in()
+        elif self.ani_name == 'color_change':
+            self.color_change()
+        elif self.ani_name == 'random_colors':
+            self.random_colors()
+        elif self.ani_name == 'random_color_flash':
+            self.random_color_flash()
+        
 
 class PixelParty:
     def __init__(self, matrix, pin):
@@ -563,9 +584,9 @@ class Buttons:
 
 
 class Connector:
-    def __init__(self, logger, lcd, client, server, mqtt, fallback_btn, subscribed_topics):
+    def __init__(self, logger, client, server, mqtt, fallback_btn, subscribed_topics):
         self.logger = logger
-        self.lcd = lcd
+        # self.lcd = lcd
         self.client = client
         self.server = server
         self.mqtt = mqtt
@@ -588,11 +609,12 @@ class Connector:
     def connect_wlan(self):
         self.client.activate()
         # self.client.read_stored_networks()
-        connected = self.client.connect()
-        if connected:
-            write_to_lcd(self.lcd, 'Connected to', self.client.connected_network)
-        else:
-            write_to_lcd(self.lcd, 'Not connected', 'to Access Point')
+        # connected = self.client.connect()
+        self.client.connect()
+        # if connected:
+        #     write_to_lcd(self.lcd, 'Connected to', self.client.connected_network)
+        # else:
+        #     write_to_lcd(self.lcd, 'Not connected', 'to Access Point')
 
     def disconnect_wlan(self):
         try:
@@ -679,38 +701,47 @@ class Connector:
 
 
 class StaticPage:
-    def __init__(self, name):
-        self.name = name
-        # data_structure for self.screen_objects
-        # [{'pixels_file': 'test', 'coord' : {'x': 10, 'y': 12}},
-        #  {'pixels_file': 'test_2', 'coord' : {'x': 42, 'y': 24}}]
-        self.screen_objects = []
+    def __init__(self, static_dict):
+        self.static_dict = static_dict['pixels_data']
         self.sprites = []
-        self.display_time = None
+        self.display_time = static_dict['duration_in_ms']
+        self.frame_time = 20
 
-    def _create_word(self):
+    def load_sprites(self):
         pass
 
-    def _load_sprite_names(self):
-        # load sprite names from a "self.name".static-file 
-        # to load it in self.screen_objects
-        with open(f'/static_pages_data/{self.name}.static') as file:
-            for line in file:
-                line = line.split(';')
-                if line[0] == 'display_time':
-                    self.display_time = int(line[1])
-                else:
-                    x_y = line[1].split('|')
-                    x = x_y[0].replace('\r\n', '')
-                    y = x_y[1].replace('\r\n', '')
-                    screen_type = line[2].replace('\r\n', '')
-                    size = line[3].replace('\r\n', '')
-                    screen_obj = {
-                        'pixels_file': line[0],
-                        'coord': {'x': x, 'y': y},
-                        'screen_type': screen_type,
-                        'size': size}
-                    self.screen_objects.append(screen_obj)
+    def clear_sprites(self):
+        self.sprites.clear()
+
+    def show_frame(self):
+        pass
+
+    def _create_word(self):
+        print('This should create a pixels file with the help of the pixels-letter files')
+
+    def _request_mqtt_for_pic(self):
+        print('This should request the mqtt client for a missing pixels picture')
+
+    # def _load_sprite_names(self):
+    #     # load sprite names from a "self.name".static-file 
+    #     # to load it in self.screen_objects
+    #     with open(f'/static_pages_data/{self.name}.static') as file:
+    #         for line in file:
+    #             line = line.split(';')
+    #             if line[0] == 'display_time':
+    #                 self.display_time = int(line[1])
+    #             else:
+    #                 x_y = line[1].split('|')
+    #                 x = x_y[0].replace('\r\n', '')
+    #                 y = x_y[1].replace('\r\n', '')
+    #                 screen_type = line[2].replace('\r\n', '')
+    #                 size = line[3].replace('\r\n', '')
+    #                 screen_obj = {
+    #                     'pixels_file': line[0],
+    #                     'coord': {'x': x, 'y': y},
+    #                     'screen_type': screen_type,
+    #                     'size': size}
+    #                 self.screen_objects.append(screen_obj)
 
     def add_sprite(self, name, x, y):
         pass
@@ -750,16 +781,6 @@ class StaticPage:
         self.sprites.clear()
         gc.collect()
 
-
-
-class Display:
-    pass
-
-class Modus:
-    pass
-
-class LCD:
-    pass
 
 class ConfigParser:
     def __init__(self):
@@ -805,7 +826,7 @@ class DataParser:
     def _parse_ani_data(self, params):
         params_dict = {
                 'page_type': params[0],
-                'duration_in_s': int(params[1]),
+                'duration_in_ms': int(params[1]),
                 'frame_time_in_ms': int(params[2])
             }
         if params[3] == 'line_top_bottom':
@@ -822,13 +843,13 @@ class DataParser:
     def _parse_ani_line_top_bottom(self, params, params_dict):
         params_dict['ani_name'] = params[3]
         color = params[4].replace('(', '').replace(')', '').split(',')
-        params_dict['color'] = (color[0], color[1], color[2])
+        params_dict['color'] = (int(color[0]), int(color[1]), int(color[2]))
         self.data.append(params_dict)
 
     def _parse_ani_full_color(self, params, params_dict):
         params_dict['ani_name'] = params[3]
         color = params[4].replace('(', '').replace(')', '').split(',')
-        params_dict['color'] = (color[0], color[1], color[2])
+        params_dict['color'] = (int(color[0]), int(color[1]), int(color[2]))
         self.data.append(params_dict)
 
     def _parse_ani_color_change(self, params, params_dict):
@@ -843,7 +864,7 @@ class DataParser:
         params_dict = {}
         params.reverse()
         params_dict['page_type'] = params.pop()
-        params_dict['duration_in_s'] = params.pop()
+        params_dict['duration_in_ms'] = params.pop()
         params_dict['pixels_data'] = []
         params.reverse()
         for pixel_data in params:
@@ -913,30 +934,17 @@ def evaluate_message(topic, msg):
         MODIS.append({'weather': msg})
 
 
-def load_static_page(static_page_name, matrix, logger):
-    logger.debug(f'Load static page {static_page_name}')
-    page = StaticPage(static_page_name)
-    page.load_sprites()
-    logger.info(f'Display time of {static_page_name}: {page.display_time}')
-    for sprite in page.sprites:
-        matrix.sprites.append(sprite)
-        logger.debug(f'Load Sprite {sprite.name} on position {sprite.x}|{sprite.y}')
-    matrix.load_into_np_array()
-    gc.collect()
-    return page.display_time
-
-
-def load_animation_page(animation_page_name, config, matrix, logger):
-    logger.debug(f'Load animation page {animation_page_name}')
-    animation = Animation(animation_page_name, config.data, matrix.height, matrix.width)
-    return animation
-
-
-# def show_animation_frame(animation):
-#     if animation.animation_type == 'line_top_bottom':
-#         animation.line_top_bottom()
-#     elif animation.animation_type == 'full_color':
-#         animation.full_color()
+def create_pages_list(data, config):
+    pages = []
+    for page in data.data:
+        if page['page_type'] == 'ani':
+            animation = Animation(config, page)
+            pages.append(animation)
+        elif page['page_type'] == 'static':
+            pass
+        else:
+            print('Unknown Page Type')
+    return pages
 
 
 def main():
@@ -946,15 +954,15 @@ def main():
     buttons = Buttons()
     for name, pin in config.data['buttons'].items():
         buttons.add_button(Button(name, pin))
-    i2c = SoftI2C(
-        scl=Pin(int(config.data['lcd']['scl_pin'])),
-        sda=Pin(int(config.data['lcd']['sda_pin'])),
-        freq=10000)
-    lcd = I2cLcd(
-        i2c,
-        int(config.data['lcd']['i2c_addr']),
-        int(config.data['lcd']['total_rows']), 
-        int(config.data['lcd']['total_columns']))
+    # i2c = SoftI2C(
+    #     scl=Pin(int(config.data['lcd']['scl_pin'])),
+    #     sda=Pin(int(config.data['lcd']['sda_pin'])),
+    #     freq=10000)
+    # lcd = I2cLcd(
+    #     i2c,
+    #     int(config.data['lcd']['i2c_addr']),
+    #     int(config.data['lcd']['total_rows']), 
+    #     int(config.data['lcd']['total_columns']))
     logger = Logger(log_level=DEBUG)
     client = Client(logger)
     client.add_config_networks(config.data['network'])
@@ -968,7 +976,7 @@ def main():
         keepalive=10)
     connector = Connector(
         logger,
-        lcd,
+        # lcd,
         client,
         server,
         mqtt,
@@ -989,7 +997,7 @@ def main():
 
     print('Start Pixel Party Master')
     print('Read Configuration File')
-    write_to_lcd(lcd, "Start Pixel", "Party Master")
+    # write_to_lcd(lcd, "Start Pixel", "Party Master")
     connector.start()
     # weather.get_current_weather()
     # ther_data['weather'][0].items():
@@ -998,24 +1006,34 @@ def main():
 
     # load_static_page('test_2', matrix, logger)
 
-    PAGES = [{'name': 'test', 'type': 'static'}, {'name': 'test_2', 'type': 'static'},
-            {'name': 'test_3', 'type': 'ani'}]
+    data = DataParser()
+    data.read('/pages_data/test.pages')
+    print('PAGES: \n', data.data)
+    
+    pages = create_pages_list(data, config)
 
-    tick = 0.02
+    index = 0
+    page_frame_time = 0
     display_time = 0
-    page_index = 0
-    last_frame_time_ms = 0
-    current_animation = None
+    
     try:
         while True:
-            start_ticks = time.ticks_ms()
+            start_time = time.ticks_ms()
+
             # check all buttons
             if buttons.buttons['fallback'].value():
                 matrix.clear()
+                matrix.delete_sprites()
+                pages.clear()
+                del pages
+                del matrix
+                del data
                 connector.disconnect_mqtt()
                 connector.disconnect_wlan()
                 server.activate()
+                gc.collect()
                 server.wait_for_connection()
+                gc.collect()
                 data = server.receive_http_data(config.data)
                 logger.debug(data)
                 for key, value in data.items():
@@ -1023,109 +1041,40 @@ def main():
                 config.write('master_data.config')
                 machine.reset()
             
-            # display static pages on led matrix
-            if display_time <= 0 and PAGES[page_index]['type'] == 'static':
-                matrix.clear()
-                display_time = load_static_page(PAGES[page_index]['name'], matrix, logger)
-                page_index = page_index + 1
-                if page_index > len(PAGES) - 1:
-                    # then back to first page
-                    page_index = 0
-                matrix.show()
-                matrix.delete_sprites()
-                time.sleep(0.02)
-            elif display_time > 0 and PAGES[page_index]['type'] == 'static':
-                time.sleep(0.02)
-            elif display_time <= 0 and PAGES[page_index]['type'] == 'ani':
-                print(page_index - 1)
-                print('ANIMATION TIME')
-                matrix.clear()
-                current_animation = load_animation_page(PAGES[page_index]['name'], config, matrix, logger)
-                print('current_ani_name: ', current_animation.name)
-                display_time = current_animation.display_time
-                page_index = page_index + 1
-                if page_index > len(PAGES) - 1:
-                        # then back to first page
-                        page_index = 0
-                time.sleep(0.02)
-            elif display_time > 0 and PAGES[page_index - 1]['type'] == 'ani':
-                # WARUM WIRD ANIMATION NICHT ANGEZEIGT????
-                print('type: ', PAGES[page_index]['type'])
-                current_animation.show_frame()
-                time.sleep(current_animation.frame_time)            
+            # display pages on led matrix
+            if display_time <= 0:
+                gc.collect()
+                if index == len(pages):
+                    index = 0
+                current_page = pages[index]
+                display_time = current_page.display_time
+                page_frame_time = current_page.frame_time
+                print(display_time)
+                index = index + 1
+            current_page.show_frame()
+            stop_time = time.ticks_ms()
 
-            # if display_time <= 0:
-            #     page_index = page_index + 1
-            #     if page_index > len(PAGES) - 1:
-            #         # then back to first page
-            #         page_index = 0
-                    
+            current_frame_time = time.ticks_diff(stop_time, start_time)
 
-
-            # nur wenn es um statische seiten geht ist tick abziehen fast richtig
-            # bei animationen kommen noch animationszeiten dazu 
-            # bzw. animation-klasse muss so umprogrammiert werden, dass sie immer
-            # ein bild zeigt und dann die funktion freigeben muss um den main loop nicht
-            # zu blockieren, danach dann nächstes bild usw.
-            # matrix.show auch nur dann ausführen wenn die aktuelle page eine statische seite ist
-            # eine animations-page muss selbst das neopixel-array beschreiben!
-            
-                # display time aus page laden und setzen falls display time 0
-                # matrix reinigen
-            # aktuelle page ladne falls display time 0 ist
-            # aktullelle page setzen falls display time nicht null ist 
-
-            
-            # print('page_index: ', page_index)
-            # print('display_time: ', display_time)
-            # print('type: ', PAGES[page_index]['type'] )
-            
-            last_frame_time_ms = time.ticks_diff(time.ticks_ms(), start_ticks)
-            display_time = display_time - (last_frame_time_ms/1000)
+            if current_frame_time <= page_frame_time:
+                time_difference = page_frame_time - current_frame_time
+                calc_time = 1
+                time.sleep_ms(time_difference - calc_time)
+                print(f'current frame time: {current_frame_time + time_difference}ms')
+            elif current_frame_time > page_frame_time:
+                print(f'Warning: One Frame takes more time than expected')
+                print(f'Expected: {page_frame_time}ms')
+                print(f'current frame time: {current_frame_time}ms')
+            display_time = display_time - current_frame_time
+            print(f'Remaining display time: {display_time}ms')
     except KeyboardInterrupt:
         matrix.clear()
         matrix.delete_sprites()
-
-    # try:
-    #     while True:
-    #         for item in MODIS:
-    #             for modus, data in item.items():
-    #                 if modus == 'text':
-    #                     pixelParty.show_text(data)
-    #                 elif modus == 'animation':
-    #                     if data == 'a':
-    #                         pixelParty.animation.line_top_bottom()
-    #                     elif data == 'b':
-    #                         pixelParty.animation.full_color((100, 100, 100))
-    #                     # elif data == 'c':
-    #                     #      pixelParty.animation.full_fade_in()
-    #                     elif data == 'd':
-    #                         pixelParty.animation.color_change()
-    #                     elif data == 'e':
-    #                         pixelParty.animation.random_colors()
-    #                     elif data == 'f':
-    #                         pixelParty.animation.random_color_flash()
-    #                 elif modus == 'picture':
-    #                     try:
-    #                         pixelParty.show_picture_2(data)
-    #                         time.sleep(1)
-    #                     except MemoryError:
-    #                         gc.collect()
-    #                 elif modus == 'weather':
-    #                     try:
-    #                         pixelParty.show_picture_3(weather.get_weather_icon_name())
-    #                         time.sleep(1)
-    #                     except MemoryError:
-    #                         gc.collect()
-    # except KeyboardInterrupt:
-    #     pixelParty.matrix.clear()
-    #     pixelParty.matrix.delete_sprite_groups()
-
-def test():
-    data = DataParser()
-    data.read('/pages_data/test.pages')
-    print(data.data)
+    finally:
+        print(f'Allocated Memory: {gc.mem_alloc()}')
+        print(f'Free Memory: {gc.mem_free()}')
+        
 
 if __name__ == '__main__':
-    # main()
-    test()
+    main()
+
