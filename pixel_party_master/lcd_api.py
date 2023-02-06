@@ -1,3 +1,6 @@
+# No license - for personal use only
+# https://peppe8o.com/download/micropython/LCD/lcd_api.py
+
 """Provides an API for talking to HD44780 compatible character LCDs."""
 
 import time

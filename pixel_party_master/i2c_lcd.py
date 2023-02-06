@@ -1,3 +1,7 @@
+# No license - for personal use only
+# https://peppe8o.com/download/micropython/LCD/i2c_lcd.py
+
+
 import utime
 import gc
 

@@ -2,6 +2,7 @@ import network
 import socket
 import time
 import urequests as requests
+import gc
 
 
 LINK = {
@@ -186,6 +187,7 @@ class Server:
     def inject_dict(self, html, dict_data):
         html = html.decode()
         for key, value in dict_data.items():
+            gc.collect()
             string_pattern = '%{' + str(key) + '}'
             html = html.replace(string_pattern, value)
         return html.encode()

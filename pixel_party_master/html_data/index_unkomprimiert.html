@@ -1,0 +1,130 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta http-equiv="X-UA-Compatible" content="IE=edge" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>LED Matrix</title>
+    <style>
+      :root {
+        --primary-clr: rgb(255, 0, 242);
+        --primary-light-clr: rgb(129, 0, 122);
+        --secondary-clr: rgb(0, 255, 234);
+      }
+
+      body {
+        font-family: Arial, Helvetica, sans-serif;
+        background: black;
+      }
+
+      h1 {
+        color: var(--primary-clr);
+      }
+
+      h2 {
+        color: var(--secondary-clr);
+      }
+
+      .content-wrapper {
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        height: 100vh;
+        padding: 1rem;
+      }
+
+      .content {
+        padding: 5rem;
+      }
+
+      .input-field {
+        display: flex;
+        justify-content: space-between;
+        margin: 1rem;
+      }
+
+      section {
+        color: white;
+      }
+
+      .input-field label {
+        margin-right: 1rem;
+      }
+
+      .btn {
+        width: 100%;
+        cursor: pointer;
+        padding: 0.5rem;
+        background: var(--primary-clr);
+        border: none;
+        transition: all 0.2s;
+        color: white;
+      }
+
+      .btn:hover {
+        color: black;
+        background: var(--primary-light-clr);
+      }
+    </style>
+  </head>
+  <body>
+    <div class="content-wrapper">
+      <div class="content">
+        <h1>LED MATRIX</h1>
+
+        <form method="get">
+          <section>
+            <h2>Network</h2>
+            <h3>Access Point 0</h3>
+            <div class="input-field">
+              <label for="fname">SSID</label>
+              <input type="text" name="ap0.ssid" value="%{ap0.ssid}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Password</label>
+              <input type="text" name="ap0.pw" value="%{ap0.pw}" />
+            </div>
+            <h3>Access Point 1</h3>
+            <div class="input-field">
+              <label for="fname">SSID</label>
+              <input type="text" name="ap1.ssid" value="%{ap1.ssid}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Password</label>
+              <input type="text" name="ap1.pw" value="%{ap1.pw}" />
+            </div>
+            <h3>Access Point 2</h3>
+            <div class="input-field">
+              <label for="fname">SSID</label>
+              <input type="text" name="ap2.ssid" value="%{ap2.ssid}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Password</label>
+              <input type="text" name="ap2.pw" value="%{ap2.pw}" />
+            </div>
+          </section>
+          <section>
+            <h2>MQTT</h2>
+            <div class="input-field">
+              <label for="fname">Broker IP</label>
+              <input type="text" name="broker_ip" value="%{broker_ip}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Client ID</label>
+              <input type="text" name="client_id" value="%{client_id}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">User</label>
+              <input type="text" name="user" value="%{user}" />
+            </div>
+            <div class="input-field">
+              <label for="lname">Password</label>
+              <input type="text" name="password" value="%{password}" />
+            </div>
+          </section>
+          <input class="btn" type="submit" value="Save" />
+        </form>
+      </div>
+    </div>
+  </body>
+</html>
