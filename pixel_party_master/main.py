@@ -17,6 +17,7 @@ from lcd_api import LcdApi
 from i2c_lcd import I2cLcd
 import urequests as requests
 
+PIXEL_DATA_PATH = '/pixels_data'
 
 class Pixel:
     def __init__(self, id, x, y, color=[255, 0, 255], brightness=0.1):
@@ -47,9 +48,8 @@ class Pixel:
 
 
 class Sprite:
-    def __init__(self, name, pixels_file_path, x=0, y=0):
+    def __init__(self, pixels_file_path, x=0, y=0):
         self.id = id(self)
-        self.name = name
         self.pixels_file_path = pixels_file_path
         self.x = x
         self.y = y
@@ -701,85 +701,104 @@ class Connector:
 
 
 class StaticPage:
-    def __init__(self, static_dict):
-        self.static_dict = static_dict['pixels_data']
-        self.sprites = []
+    def __init__(self, matrix, static_dict):
+        self.matrix = matrix
+        self.pixels_data = static_dict['pixels_data']
         self.display_time = static_dict['duration_in_ms']
         self.frame_time = 20
-
+        
     def load_sprites(self):
-        pass
-
+        for data in self.pixels_data:
+            if data['pixel_type'] == 'pic':
+                try:
+                    pixels_path = f'/pixels_data/pictures/{data["file_name"]}-{data["size"]}.pixels'
+                    sprite = Sprite(pixels_path, x=int(data['coordinates']['x']), y=int(data['coordinates']['y']))
+                    self.matrix.sprites.append(sprite)
+                except OSError as error:
+                    print(f'Can not find picture-pixels-file at "{pixels_path}"')
+                    self._request_mqtt_for_pic()
+                    print(error)
+            elif data['pixel_type'] == 'txt': 
+                try:
+                    pixels_path = f'/pixels_data/texts/{data["file_name"]}-{data["size"]}.pixels'
+                    sprite = Sprite(pixels_path, x=int(data['coordinates']['x']), y=int(data['coordinates']['y']))
+                    self.matrix.sprites.append(sprite)
+                except OSError as error:
+                    print(f'Can not find text-pixels-file at "{pixels_path}"')
+                    print(error)
+                    print('Create Word')
+                    self._create_word(data['file_name'], data['size'])
+                    pixels_path = f'/pixels_data/texts/{data["file_name"]}-{data["size"]}.pixels'
+                    sprite = Sprite(pixels_path, x=int(data['coordinates']['x']), y=int(data['coordinates']['y']))
+                    self.matrix.sprites.append(sprite)
+        self.matrix.load_into_np_array()
+                
     def clear_sprites(self):
-        self.sprites.clear()
+        # self.sprites.clear()
+        self.matrix.clear()
 
     def show_frame(self):
-        pass
+        self.matrix.show()
+        time.sleep_ms(self.frame_time)
 
-    def _create_word(self):
-        print('This should create a pixels file with the help of the pixels-letter files')
+    def _create_word(self, word, size):
+        word = Word(word, size)
+        word.store_word()
 
     def _request_mqtt_for_pic(self):
         print('This should request the mqtt client for a missing pixels picture')
 
-    # def _load_sprite_names(self):
-    #     # load sprite names from a "self.name".static-file 
-    #     # to load it in self.screen_objects
-    #     with open(f'/static_pages_data/{self.name}.static') as file:
-    #         for line in file:
-    #             line = line.split(';')
-    #             if line[0] == 'display_time':
-    #                 self.display_time = int(line[1])
-    #             else:
-    #                 x_y = line[1].split('|')
-    #                 x = x_y[0].replace('\r\n', '')
-    #                 y = x_y[1].replace('\r\n', '')
-    #                 screen_type = line[2].replace('\r\n', '')
-    #                 size = line[3].replace('\r\n', '')
-    #                 screen_obj = {
-    #                     'pixels_file': line[0],
-    #                     'coord': {'x': x, 'y': y},
-    #                     'screen_type': screen_type,
-    #                     'size': size}
-    #                 self.screen_objects.append(screen_obj)
 
-    def add_sprite(self, name, x, y):
-        pass
+class Letter:
+    def __init__(self, letter):
+        self.letter = letter
+        self.pixel_columns = []
+        self._load_letter()
 
-    def save_sprite_names(self):
-        pass
-        # write sprite names from self.screen_objects into a "self.name".static-file
-        # if self.screen_objects is Empty then dont allow to save because you eventually
-        # override existing data!
-        # you can reload it later from file system
+    def _load_letter(self):
+        with open(PIXEL_DATA_PATH  + f'/letters/{self.letter}.pixels') as file:
+            for line in file:
+                line = line.replace('\n', '')
+                self.pixel_columns.append(line)
 
-    def _create_sprite_path(self, screen_type):
-        if screen_type == 'pic':
-            return '/pixels_data/pictures'
-        elif screen_type == 'txt':
-            return '/pixels_data/texts'
 
-    def load_sprites(self):
-        self._load_sprite_names()
-        # before i have sprites in self.sprites
-        # i have to find it with the data in self.screen_objects
-        for obj in self.screen_objects:
-            try:
-                # TESTS IT!!
-                # an das sprtie objekt den richtigen pfad mitteile anhand des screen_type pfad erzeugen!
-                directory = self._create_sprite_path(obj['screen_type'])
-                path = f'{directory}/{obj["pixels_file"]}-{obj["size"]}.pixels'
-                new_sprite = Sprite(obj["pixels_file"], path, x=int(obj['coord']['x']), y=int(obj['coord']['y']))
-                self.sprites.append(new_sprite)
-            except OSError as error:
-                print(f'Problem with {obj}: {error}')
-                print('It should request the other mqtt client for the file')
-                # then try again
-                # self._read_pixels_from_file(f'{self.name}.pixels')
+class Word:
+    def __init__(self, word, size):
+        self.word = word
+        self.size = size
+        self.letters = []
+        self._load_letters()
+        self.pixel_word = None
 
-    def clear_sprites(self):
-        self.sprites.clear()
-        gc.collect()
+    def _load_letters(self):
+        for letter in self.word:
+            self.letters.append(Letter(letter))
+
+    def _last_col_is_empty(self, letter):
+        for col in letter:
+            if col.split(';')[-2] != "[0, 0, 0]":
+                return False
+        return True
+
+    def _append_letter(self, letter):
+        for i in range(len(self.pixel_word)):
+            if not self._last_col_is_empty(letter):
+                self.pixel_word[i] = self.pixel_word[i] + '[0, 0, 0];'
+            self.pixel_word[i] = self.pixel_word[i] + letter[i]
+
+    def _merge_all_letters(self):
+        self.letters.reverse()
+        self.pixel_word = self.letters.pop().pixel_columns
+        while self.letters:
+            self._append_letter(self.letters.pop().pixel_columns)
+
+    def store_word(self):
+        self._merge_all_letters()
+        with open(PIXEL_DATA_PATH  + f'/texts/{self.word}-{self.size}.pixels', 'w') as file:
+            for i in range(len(self.pixel_word)):
+                self.pixel_word[i] = self.pixel_word[i].replace('\r', '')
+            for row in self.pixel_word:
+                file.write(f'{row}\n')
 
 
 class ConfigParser:
@@ -934,20 +953,22 @@ def evaluate_message(topic, msg):
         MODIS.append({'weather': msg})
 
 
-def create_pages_list(data, config):
+def create_pages_list(data, config, matrix):
     pages = []
     for page in data.data:
         if page['page_type'] == 'ani':
             animation = Animation(config, page)
             pages.append(animation)
         elif page['page_type'] == 'static':
-            pass
+            staticPage = StaticPage(matrix, page)
+            pages.append(staticPage)
         else:
             print('Unknown Page Type')
     return pages
 
 
 def main():
+    DEBUG = False
     config = ConfigParser()
     config.read('master_data.config')
 
@@ -1008,9 +1029,8 @@ def main():
 
     data = DataParser()
     data.read('/pages_data/test.pages')
-    print('PAGES: \n', data.data)
     
-    pages = create_pages_list(data, config)
+    pages = create_pages_list(data, config, matrix)
 
     index = 0
     page_frame_time = 0
@@ -1047,9 +1067,15 @@ def main():
                 if index == len(pages):
                     index = 0
                 current_page = pages[index]
+                if isinstance(pages[index - 1], StaticPage):
+                    pages[index - 1].clear_sprites()
+                if isinstance(current_page, StaticPage):
+                    current_page.matrix.delete_sprites()
+                    current_page.load_sprites()
                 display_time = current_page.display_time
                 page_frame_time = current_page.frame_time
-                print(display_time)
+                if DEBUG:
+                    print(display_time)
                 index = index + 1
             current_page.show_frame()
             stop_time = time.ticks_ms()
@@ -1060,19 +1086,22 @@ def main():
                 time_difference = page_frame_time - current_frame_time
                 calc_time = 1
                 time.sleep_ms(time_difference - calc_time)
-                print(f'current frame time: {current_frame_time + time_difference}ms')
+                if DEBUG:
+                    print(f'current frame time: {current_frame_time + time_difference}ms')
             elif current_frame_time > page_frame_time:
-                print(f'Warning: One Frame takes more time than expected')
-                print(f'Expected: {page_frame_time}ms')
-                print(f'current frame time: {current_frame_time}ms')
-            display_time = display_time - current_frame_time
-            print(f'Remaining display time: {display_time}ms')
+                if DEBUG:
+                    print(f'Warning: One Frame takes more time than expected')
+                    print(f'Expected: {page_frame_time}ms')
+                    print(f'current frame time: {current_frame_time}ms')
+            display_time = int(display_time) - int(current_frame_time)
+            if DEBUG: 
+                print(f'Remaining display time: {display_time}ms')
     except KeyboardInterrupt:
         matrix.clear()
         matrix.delete_sprites()
-    finally:
-        print(f'Allocated Memory: {gc.mem_alloc()}')
-        print(f'Free Memory: {gc.mem_free()}')
+    # finally:
+    #     print(f'Allocated Memory: {gc.mem_alloc()}')
+    #     print(f'Free Memory: {gc.mem_free()}')
         
 
 if __name__ == '__main__':
