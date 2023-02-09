@@ -1,0 +1,8 @@
+ani;10000;25;color_change
+ani;1000;20;line_top_bottom;(50,0,0)
+ani;2000;50;line_top_bottom;(0,50,0)
+ani;4000;100;line_top_bottom;(0,0,50)
+ani;8000;200;line_top_bottom;(50,0,50)
+ani;3000;100;line_top_bottom;(0,0,50)
+ani;1000;20;full_color;(0,50,0)
+ani;5000;60;random_color_flash
