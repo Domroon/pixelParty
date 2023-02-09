@@ -1,7 +1,32 @@
 from pathlib import Path
+import logging
+from logging.handlers import RotatingFileHandler
+
 
 CWD = Path.cwd()
 PAGES_DATA_FOLDER = CWD / 'pages_data'
+
+
+def config_logger():
+    formatter = logging.Formatter('%(asctime)s %(levelname)-8s %(name)-15s %(message)s')
+    formatter_2 = logging.Formatter('%(asctime)s %(levelname)-8s %(name)-15s %(message)s\n')
+
+    console_handler = logging.StreamHandler()
+    console_handler.setFormatter(formatter)
+
+    file_handler = RotatingFileHandler('error.log', maxBytes=4096, backupCount=3)
+    file_handler.setFormatter(formatter_2)
+    file_handler.setLevel(logging.ERROR)
+
+    logger = logging.getLogger(__name__)
+    logger.setLevel(logging.DEBUG)
+    logger.addHandler(console_handler)
+    logger.addHandler(file_handler)
+
+    return logger
+
+
+logger = config_logger()
 
 
 class ConfigParser:
@@ -127,16 +152,37 @@ class PixelParty:
         self.config = ConfigParser()
         self.data = DataParser()
 
+    def _set_log_level(self):
+        log_level_name = self.config.data['general']['log_level']
+        if log_level_name == 'NOTSET':
+            log_level = logging.NOTSET
+        elif log_level_name == 'DEBUG':
+            log_level = logging.DEBUG
+        elif log_level_name == 'INFO':
+            log_level = logging.INFO
+        elif log_level_name == 'WARNING':
+            log_level = logging.WARNING
+        elif log_level_name == 'ERROR':
+            log_level = logging.ERROR
+        elif log_level_name == 'CRITICAL':
+            log_level = logging.CRITICAL
+        else:
+            raise Exception(f'Wrong log level name in config file: "{log_level_name}"')
+        logger.setLevel(log_level)
+
     def start(self):
         self.config.read('master_data.conf')
         self.data.read(PAGES_DATA_FOLDER / self.config.data['general']['pages_filename'])
-        for data in self.data.data:
-            print(data)
+        self._set_log_level()
 
 
 def main():
-    pixelParty = PixelParty()
-    pixelParty.start()
+    try:
+        pixelParty = PixelParty()
+        pixelParty.start()
+
+    except Exception:
+        logger.exception("Exception occurred")
 
 
 if __name__ == '__main__':
