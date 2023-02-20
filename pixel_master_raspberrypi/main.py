@@ -2,7 +2,6 @@ from pathlib import Path
 import logging
 from logging.handlers import RotatingFileHandler
 
-
 CWD = Path.cwd()
 PAGES_DATA_FOLDER = CWD / 'pages_data'
 

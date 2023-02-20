@@ -46,3 +46,19 @@ You can write the generated "firmware.bin" from the folder ~/micropython/ports/e
 https://docs.micropython.org/en/latest/reference/manifest.html
 https://www.udemy.com/course/micropython-python-fur-mikrocontroller-esp32-und-stm32/learn/lecture/25482454#overview
 https://www.textfixer.de/html/html-komprimieren.php
+
+## Copy Project on RaspberryPi
+
+    scp -O -r ./pixelParty domroon@pixel-master.local:/home/domroon
+
+
+## GPIO docs RaspberryPi
+
+https://sourceforge.net/p/raspberry-gpio-python/wiki/BasicUsage/
+https://www.elektronik-kompendium.de/sites/raspberry-pi/2611151.htm
+
+
+## WS2812-Python Docs Raspberry Pi
+
+https://detlef-huettemann.com/post/2017/adafruit-neopixel-raspberry/
+https://pypi.org/project/rpi-ws281x/
