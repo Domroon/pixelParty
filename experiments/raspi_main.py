@@ -2,6 +2,7 @@ class Matrix:
     def __init__(self):
         self.pixels = []
         self.quarters = {}
+        self.rearranged_pixels = []
 
     def _cut_into_quarters(self):
         upper_half = []
@@ -23,11 +24,64 @@ class Matrix:
         }
         
         # reverse every second line
-        for pixel_list in self.quarters:
+        for pixel_list in self.quarters.values():
             for i, line in enumerate(pixel_list):
                 if i % 2 == 0:
                     line.reverse()
-           
+    
+    def _join_up_quarters(self):
+        # # join up every row from upper_left with every row from upper_right
+        # upper_half = []
+        # for i in range(len(self.quarters['upper_left'])):
+        #     new_line = []
+        #     for value in self.quarters['upper_left'][i]:
+        #         new_line.append(value)
+        #     for value in self.quarters['upper_right'][i]:
+        #         new_line.append(value)
+        #     upper_half.append(new_line)
+
+        # # join up every row from bottom_left with every row from bottom_right
+        # bottom_half = []
+        # for i in range(len(self.quarters['bottom_left'])):
+        #     new_line = []
+        #     for value in self.quarters['bottom_left'][i]:
+        #         new_line.append(value)
+        #     for value in self.quarters['bottom_right'][i]:
+        #         new_line.append(value)
+        #     bottom_half.append(new_line)
+        # # append the bottom half to the upper half
+        # for line in bottom_half:
+        #     upper_half.append(line)
+
+        # self.rearranged_pixels = upper_half
+
+        # append all quarters into one list
+        # upper_half = []
+        for i in range(len(self.quarters['upper_left'])):
+            new_line = []
+            for value in self.quarters['upper_left'][i]:
+                new_line.append(value)
+            self.rearranged_pixels.append(new_line)
+        
+        for i in range(len(self.quarters['upper_right'])):
+            new_line = []
+            for value in self.quarters['upper_right'][i]:
+                new_line.append(value)
+            self.rearranged_pixels.append(new_line)
+
+        for i in range(len(self.quarters['bottom_left'])):
+            new_line = []
+            for value in self.quarters['bottom_left'][i]:
+                new_line.append(value)
+            self.rearranged_pixels.append(new_line)
+
+        for i in range(len(self.quarters['bottom_right'])):
+            new_line = []
+            for value in self.quarters['bottom_right'][i]:
+                new_line.append(value)
+            self.rearranged_pixels.append(new_line)
+        
+
     def _cut_in_half(self, half):
         left_quarter = []
         right_quarter = []
@@ -56,18 +110,20 @@ class Matrix:
                     line_list.append(pixel_list)
                 self.pixels.append(line_list)
         self._cut_into_quarters()
+        self._join_up_quarters()
 
-    def join_up_quarters(self):
-        # join up every row from upper_left with every row from upper_right
-        # join up every row from bottom_left with every row from bottom_right
-        # append the bottom half to the upper half
-        pass 
-
+    def write_pixels_to_file(self, path):
+        with open(path, 'w') as file:
+            for line in self.rearranged_pixels:
+                for value in line:
+                    file.write(f'{str(value)};')
+                file.write('\n')
+                
 
 def main():
     matrix = Matrix()
     matrix.read_pixels_from_file('face.pixels')
-
+    matrix.write_pixels_to_file('face-r.pixels')
 
 if __name__ == '__main__':
     main()
