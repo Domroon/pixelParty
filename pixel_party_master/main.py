@@ -272,9 +272,6 @@ class Animation:
         except KeyError:
             pass
 
-    def _clear(self):
-        self.np.fill((0, 0, 0))
-        self.np.write()
 
     def line_top_bottom(self):
         if self.pos < self.height * self.width:
@@ -300,13 +297,13 @@ class Animation:
             self.np.write()
             time.sleep(0.01)
             
-    def color_change(self):
+    def color_change(self, max_brightness=50):
         if self.phase_1:
             self.red = self.red + 1
             self.np.fill((self.red, 0, 0))
             self.np.write()
             time.sleep_ms(self.frame_time)
-            if self.red >= 100:
+            if self.red >= max_brightness:
                 self.phase_1 = False
                 self.phase_2 = True
         elif self.phase_2:
@@ -315,7 +312,7 @@ class Animation:
             self.np.fill((self.red, self.green, 0))
             self.np.write()
             time.sleep_ms(self.frame_time)
-            if self.green >= 100:
+            if self.green >= max_brightness:
                 self.phase_2 = False
                 self.phase_3 = True
         elif self.phase_3:
@@ -324,7 +321,7 @@ class Animation:
             self.np.fill((0, self.green, self.blue))
             self.np.write()
             time.sleep_ms(self.frame_time)
-            if self.blue >= 100:
+            if self.blue >= max_brightness:
                 self.phase_3 = False
                 self.phase_1 = True
                 self.red = 0
@@ -333,7 +330,7 @@ class Animation:
 
     def random_colors(self):
         for pos in range(0, 256):
-            max = randint(0, 50)
+            max = randint(0, 20)
             self.np[pos] = (randint(0, max), randint(0, max), randint(0, max))
         self.np.write()
 
