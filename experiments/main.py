@@ -1,6 +1,6 @@
 import time
 from random import randint
-from machine import Pin
+from machine import Pin, UART
 from neopixel import NeoPixel
 import gc
 
@@ -60,18 +60,58 @@ class Animation:
         self.np.write()
 
 
+class Receiver:
+    def __init__(self):
+        self.uart = UART(1, baudrate=115200, tx=12, rx=14)
+        self.lines = []
+        
+    def receive_command(self):
+        while True:
+            line = self.uart.readline()
+            if line:
+                break
+            time.sleep(0.03)
+        line = line.decode()
+        if line == 'PIXELS':
+            self._receive_pixels_data()
+        elif line == 'ANI':
+            self._receive_ani_data()
+        else:
+            raise Exception('Unknown Command from UART')
+    
+    def _receive_pixels_data(self):
+        self.lines.clear()
+        while True:
+            line = self.uart.readline()
+            if line:
+                # print(line, end='')
+                self.lines.append(line)
+            if line == b'EOF\n':
+                break
+    
+    def _receive_ani_data(self):
+        print('It should now receive the animation type and parameters for that type')
+
+
 def main():
     pin = Pin(33, Pin.OUT)
     np = NeoPixel(pin, 1024)
     matrix = Matrix(np)
     ani = Animation(np)
+    rec = Receiver()
+    
+    rec = Receiver()
+    rec.receive_command()
 
-    try:
-        while True:
-            ani.random_colors()
-    except KeyboardInterrupt:
-        np.fill((0, 0, 0))
-        np.write()
+    for line in rec.lines:
+        print(line.decode())
+
+    # try:
+    #     while True:
+    #         ani.random_colors()
+    # except KeyboardInterrupt:
+    #     np.fill((0, 0, 0))
+    #     np.write()
     # matrix.read_pixels_from_file('edge-points-r.pixels')
     # matrix.write_to_led()
     # # time.sleep(1)
