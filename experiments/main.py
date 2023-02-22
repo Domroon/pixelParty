@@ -28,6 +28,13 @@ class Matrix:
                         pixel_list.append(int(value))
                     self.pixels.append(pixel_list)
 
+    def read_pixels_from_string_list(self, string_list):
+        pixels_string = []
+        for line in string_list:
+            pixels_string.append(line.decode().rstrip())  
+
+        print(pixels_string) 
+
     def write_to_led(self):
         for i in range(self.np.n):
             self.np[i] = self.pixels[i]
@@ -65,7 +72,7 @@ class Receiver:
         self.uart = UART(1, baudrate=115200, tx=12, rx=14)
         self.lines = []
         
-    def receive_command(self):
+    def receive(self):
         while True:
             line = self.uart.readline()
             if line:
@@ -84,10 +91,11 @@ class Receiver:
         while True:
             line = self.uart.readline()
             if line:
-                # print(line, end='')
+                # print(line)
                 self.lines.append(line)
-            if line == b'EOF\n':
+            if line == b'EOF':
                 break
+        self.lines.pop()
     
     def _receive_ani_data(self):
         print('It should now receive the animation type and parameters for that type')
@@ -101,10 +109,13 @@ def main():
     rec = Receiver()
     
     rec = Receiver()
-    rec.receive_command()
+    rec.receive()
 
-    for line in rec.lines:
-        print(line.decode())
+    pixel_values = rec.lines
+    for i, line in enumerate(pixel_values):
+        print(i, line.decode())
+
+    # matrix.read_pixels_from_string_list(rec.lines)
 
     # try:
     #     while True:
