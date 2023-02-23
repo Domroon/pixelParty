@@ -46,3 +46,8 @@ You can write the generated "firmware.bin" from the folder ~/micropython/ports/e
 https://docs.micropython.org/en/latest/reference/manifest.html
 https://www.udemy.com/course/micropython-python-fur-mikrocontroller-esp32-und-stm32/learn/lecture/25482454#overview
 https://www.textfixer.de/html/html-komprimieren.php
+
+
+## Copy Project on RaspberryPi
+
+    scp -O -r ./pixelParty domroon@pixel-master.local:/home/domroon
