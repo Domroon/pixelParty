@@ -78,7 +78,7 @@ class Animation:
         self.np.write()
 
 
-class Receiver:
+class UARTReceiver:
     def __init__(self):
         self.uart = UART(1, baudrate=115200, tx=UART_TX_PIN, rx=UART_RX_PIN)
         self.command = None
@@ -119,7 +119,7 @@ class Device:
     def __init__(self):
         self.matrix = Matrix()
         self.ani = Animation()
-        self.rec = Receiver()
+        self.rec = UARTReceiver()
         self.irq_btn = Pin(IRQ_PIN, Pin.IN)
         self.mode = None
         self.run_loops = False
