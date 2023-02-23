@@ -1,3 +1,40 @@
+import time
+import wiringpi
+
+
+class UARTSender:
+    def __init__(self):
+        wiringpi.wiringPiSetup()
+        self.serial = wiringpi.serialOpen('/dev/ttyS0', 115200)
+
+    def _send_data(self, data):
+        for line in data:
+            wiringpi.serialPuts(self.serial, line)
+            time.sleep(0.002)
+        wiringpi.serialPuts(self.serial, 'EOF')
+
+    def _read_pixels_file(self, path):
+        with open(path, 'r') as file:
+            pixel_file = file.read()
+
+            pixel_string = pixel_file.replace('\n', '')
+            pixel_strings = pixel_string.split(';')
+            pixel_strings.pop()
+        
+        for i in range(len(pixel_strings)):
+            pixel_strings[i] = pixel_strings[i].replace('[', '')
+            pixel_strings[i] = pixel_strings[i].replace(']', '')
+            pixel_strings[i] = pixel_strings[i].replace(' ', '')
+        
+        return pixel_strings
+
+    def send_pixels_data(self, path):
+        wiringpi.serialPuts(self.serial, 'PIXELS')
+        time.sleep(0.03)
+        pixel_strings = self._read_pixels_file(path)
+        self._send_data(pixel_strings)
+
+
 class PixelsConverter:
     def __init__(self):
         self.pixels = []
