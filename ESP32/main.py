@@ -1,12 +1,14 @@
 import time
 from machine import Pin, UART
+from neopixel import NeoPixel
 from random import randint
 import gc
 
 
 class Matrix:
-    def __init__(self, np):
-        self.np = np
+    def __init__(self):
+        self.pin = Pin(33, Pin.OUT)
+        self.np = NeoPixel(self.pin, 1024)
         self.pixels = []
 
     def read_pixels_from_file(self, path):
@@ -37,6 +39,10 @@ class Matrix:
     def write_to_led(self):
         for i in range(self.np.n):
             self.np[i] = self.pixels[i]
+        self.np.write()
+
+    def clear(self):
+        self.np.fill((0, 0, 0))
         self.np.write()
 
 
