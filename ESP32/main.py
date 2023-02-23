@@ -1,3 +1,4 @@
+from random import randint
 import gc
 
 
@@ -34,4 +35,30 @@ class Matrix:
     def write_to_led(self):
         for i in range(self.np.n):
             self.np[i] = self.pixels[i]
+        self.np.write()
+
+
+class Animation:
+    def __init__(self, np, brightness=10):
+        self.np = np
+        self.br = brightness
+
+    def _clear(self):
+        self.np.fill((0, 0, 0))
+        self.np.write()
+    
+    def random_color_flash(self):
+        self.np[randint(0, self.np.n - 1)] = (255, 255, 255)
+        self.np[randint(0, self.np.n - 1)] = (255, 0, 0)
+        self.np[randint(0, self.np.n - 1)] = (0, 255, 0)
+        self.np[randint(0, self.np.n - 1)] = (0, 0, 255)
+        self.np[randint(0, self.np.n - 1)] = (255, 0, 255)
+        self.np[randint(0, self.np.n - 1)] = (0, 255, 255)
+        self.np.write()
+        self._clear()
+
+    def random_colors(self):
+        for pos in range(0, self.np.n - 1):
+            max = randint(0, self.br)
+            self.np[pos] = (randint(0, max), randint(0, max), randint(0, max))
         self.np.write()
