@@ -1,9 +1,12 @@
 import time
+from pathlib import Path
 import wiringpi
 
 
 IRQ_PIN = 4
 OUTPUT_MODE = 1
+
+DATA_FOLDER = Path.cwd() / 'data'
 
 
 class UARTSender:
@@ -18,8 +21,8 @@ class UARTSender:
             time.sleep(0.002)
         wiringpi.serialPuts(self.serial, 'EOF')
 
-    def _read_pixels_file(self, path):
-        with open(path, 'r') as file:
+    def _read_pixels_file(self, filename):
+        with open(DATA_FOLDER / filename, 'r') as file:
             pixel_file = file.read()
 
             pixel_string = pixel_file.replace('\n', '')
@@ -38,12 +41,12 @@ class UARTSender:
         time.sleep(0.1)
         wiringpi.digitalWrite(IRQ_PIN, 0)
 
-    def send_pixels_data(self, path):
+    def send_pixels_data(self, filename):
         self._trigger_irq()
         time.sleep(0.03)
         wiringpi.serialPuts(self.serial, 'PIXELS')
         time.sleep(0.03)
-        pixel_strings = self._read_pixels_file(path)
+        pixel_strings = self._read_pixels_file(filename)
         self._send_data(pixel_strings)
 
 
@@ -113,9 +116,9 @@ class PixelsConverter:
 
         return left_quarter, right_quarter
         
-    def read_pixels_from_file(self, path):
+    def _read_pixels_from_file(self, filename):
         self.pixels.clear()
-        with open(path, 'r') as file:
+        with open(DATA_FOLDER / filename, 'r') as file:
             for line in file:
                 line = line.rstrip()
                 line = line.split(';')
@@ -133,9 +136,48 @@ class PixelsConverter:
         self._cut_into_quarters()
         self._join_up_quarters()
 
-    def write_pixels_to_file(self, path):
-        with open(path, 'w') as file:
+    def _write_pixels_to_file(self, filename):
+        with open(filename, 'w') as file:
             for line in self.rearranged_pixels:
                 for value in line:
                     file.write(f'{str(value)};')
                 file.write('\n')
+
+    def convert_pixels_file(self, filename):
+        self._read_pixels_from_file(DATA_FOLDER / f'{filename}.pixels')
+        self._write_pixels_to_file(DATA_FOLDER / f'{filename}-r.pixels')
+
+
+class UserInterface:
+    def __init__(self):
+        self.sender = UARTSender()
+        self.converter = PixelsConverter()
+
+    def _show_pixel_data(self):
+        filename = input('Please enter a pixels-file-filename from the folder "data": ')
+        self.converter.convert_pixels_file(filename)
+        self.sender.send_pixels_data(f'{filename}-r.pixels')
+
+    def show_animation(self):
+        pass
+
+    def start(self):
+        while True:
+            print('1 - Show a Pixel File on the LED-Matrix')
+            print('q - Exit the program')
+            user_input = ('Input: ')
+            if user_input == '1':
+                self._show_pixel_data()
+            elif user_input == 'q':
+                break
+            else:
+                print('Wrong Input. Please try again')
+
+
+def main():
+    user_interface = UserInterface()
+    user_interface.start()
+
+
+if __name__ == '__main__':
+    main()
