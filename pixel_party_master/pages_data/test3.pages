@@ -1,9 +1,0 @@
-static;5000;txt,5,DOM,0|6
-ani;3000;10;random_color_flash
-ani;1000;20;line_top_bottom;(0,50,0)
-ani;1000;20;full_color;(0,50,0)
-ani;1000;50;color_change
-ani;1000;10;random_color_flash
-static;10000;pic,5,chess_red,5|12;pic,5,mandala,1|1;txt,5,DOM,0|6
-static;10000;txt,5,MIX,0|8
-static;10000;pic,5,super_mario,0|0
