@@ -1,3 +1,5 @@
+import time
+from machine import Pin, UART
 from random import randint
 import gc
 
@@ -62,3 +64,37 @@ class Animation:
             max = randint(0, self.br)
             self.np[pos] = (randint(0, max), randint(0, max), randint(0, max))
         self.np.write()
+
+
+class Receiver:
+    def __init__(self):
+        self.uart = UART(1, baudrate=115200, tx=12, rx=14)
+        self.lines = []
+        
+    def receive(self):
+        while True:
+            line = self.uart.readline()
+            if line:
+                break
+            time.sleep(0.03)
+        line = line.decode()
+        if line == 'PIXELS':
+            self._receive_pixels_data()
+        elif line == 'ANI':
+            self._receive_ani_data()
+        else:
+            raise Exception('Unknown Command from UART')
+    
+    def _receive_pixels_data(self):
+        self.lines.clear()
+        while True:
+            line = self.uart.readline()
+            if line:
+                # print(line)
+                self.lines.append(line)
+            if line == b'EOF':
+                break
+        self.lines.pop()
+    
+    def _receive_ani_data(self):
+        print('It should now receive the animation type and parameters for that type')
