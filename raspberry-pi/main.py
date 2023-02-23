@@ -2,9 +2,14 @@ import time
 import wiringpi
 
 
+IRQ_PIN = 4
+OUTPUT_MODE = 1
+
+
 class UARTSender:
     def __init__(self):
-        wiringpi.wiringPiSetup()
+        wiringpi.wiringPiSetupGpio()
+        wiringpi.pinMode(IRQ_PIN, OUTPUT_MODE)
         self.serial = wiringpi.serialOpen('/dev/ttyS0', 115200)
 
     def _send_data(self, data):
@@ -28,7 +33,14 @@ class UARTSender:
         
         return pixel_strings
 
+    def _trigger_irq(self):
+        wiringpi.digitalWrite(IRQ_PIN, 1)
+        time.sleep(0.1)
+        wiringpi.digitalWrite(IRQ_PIN, 0)
+
     def send_pixels_data(self, path):
+        self._trigger_irq()
+        time.sleep(0.03)
         wiringpi.serialPuts(self.serial, 'PIXELS')
         time.sleep(0.03)
         pixel_strings = self._read_pixels_file(path)
