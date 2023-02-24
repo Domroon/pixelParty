@@ -91,6 +91,7 @@ class PixelsConverter:
                     line.reverse()
     
     def _join_up_quarters(self):
+        self.rearranged_pixels.clear()
         for i in range(len(self.quarters['upper_left'])):
             new_line = []
             for value in self.quarters['upper_left'][i]:
@@ -184,6 +185,12 @@ class UserInterface:
 
 
 def main():
+    # converter = PixelsConverter()
+    # converter.convert_pixels_file('edges')
+    # converter.convert_pixels_file('edges')
+    # converter.convert_pixels_file('edges')
+    # for i, line in enumerate(converter.rearranged_pixels):
+    #     print(i, line)
     user_interface = UserInterface()
     user_interface.start()
 
