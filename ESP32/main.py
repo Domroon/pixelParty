@@ -9,12 +9,12 @@ MATRIX_PIN = 33
 UART_TX_PIN = 12
 UART_RX_PIN = 14
 IRQ_PIN = 35
+BAUDRATE = 38400
 
 
 class Matrix:
-    def __init__(self):
-        self.pin = Pin(MATRIX_PIN, Pin.OUT)
-        self.np = NeoPixel(self.pin, 1024)
+    def __init__(self, np):
+        self.np = np
         self.pixels = []
 
     def read_pixels_from_file(self, path):
@@ -80,7 +80,7 @@ class Animation:
 
 class UARTReceiver:
     def __init__(self):
-        self.uart = UART(1, baudrate=115200, tx=UART_TX_PIN, rx=UART_RX_PIN)
+        self.uart = UART(1, baudrate=BAUDRATE, tx=UART_TX_PIN, rx=UART_RX_PIN, timeout=1000)
         self.command = None
         self.data = []
         
@@ -90,26 +90,34 @@ class UARTReceiver:
             if line:
                 break
             time.sleep(0.03)
-        line = line.decode()
-        if line == 'PIXELS':
+        if line == b'PIXELS\n':
             self.command = 'PIXELS'
+            print('Received command "PIXELS"')
             self._receive_pixels_data()
-        elif line == 'ANI':
+        elif line == b'ANI\n':
             self.command = 'ANI'
+            print('Received command "ANI"')
             self._receive_ani_data()
         else:
-            raise Exception('Unknown Command from UART')
+            raise Exception(f'Unknown Command from UART: {line}')
     
     def _receive_pixels_data(self):
         self.data.clear()
+        gc.collect()
+        counter = 0
+        start_time = time.ticks_ms()
         while True:
             line = self.uart.readline()
-            if line:
-                # print(line)
-                self.data.append(line)
             if line == b'EOF':
                 break
+            if line:
+                self.data.append(line)
+                print(counter, line)
+                counter = counter + 1
         self.data.pop()
+        stop_time = time.ticks_ms()
+        diff_time = time.ticks_diff(stop_time, start_time)
+        print(f'Received Pixels-Data in {diff_time} ms')
     
     def _receive_ani_data(self):
         print('It should now receive the animation type and parameters for that type')
@@ -117,25 +125,37 @@ class UARTReceiver:
 
 class Device:
     def __init__(self):
-        self.matrix = Matrix()
-        self.ani = Animation()
+        self.pin = Pin(MATRIX_PIN, Pin.OUT)
+        self.np = NeoPixel(self.pin, 1024)
+        self.matrix = Matrix(self.np)
+        self.ani = Animation(self.np)
         self.rec = UARTReceiver()
         self.irq_btn = Pin(IRQ_PIN, Pin.IN)
         self.mode = None
+        self.data = None
         self.run_loops = False
 
-    def _listen_uart(self):
+    def _listen_uart(self, pin):
+        self.data = None
+        print('receive data...')
         self.rec.receive()
-        self.mode = self.rec.command
-        self.data = self.rec.data
+        print('sucessfully received data')
+        # self.mode = self.rec.command
+        # self.data = self.rec.data
         self.run_loops = False
-        self._show_on_matrix()
+        #for value in self.rec.data:
+        #    print(value)
+        print('length: ', len(self.rec.data))
+        # self._show_on_matrix()
+        # print('mode', self.mode)
+        # print('data', self.data)
+        # print('length', len(self.data))
 
     def _show_on_matrix(self):
         self.matrix.clear()
         if self.mode == 'PIXELS':
             self.matrix.read_pixels(self.data)
-            self.matrix.write_to_led()
+            # self.matrix.write_to_led()
         elif self.mode == 'ANI':
             self.run_loops = True
             while True:
@@ -145,7 +165,7 @@ class Device:
                 time.sleep(1)
 
     def start(self):
-        self.irq_btn.irq(self._listen_uart)
+        self.irq_btn.irq(self._listen_uart, trigger=self.irq_btn.IRQ_RISING)
 
 
 def main():

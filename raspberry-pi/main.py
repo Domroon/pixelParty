@@ -1,10 +1,12 @@
 import time
 from pathlib import Path
 import wiringpi
+import RPi.GPIO as GPIO
 
 
 IRQ_PIN = 4
 OUTPUT_MODE = 1
+BAUDRATE = 38400
 
 DATA_FOLDER = Path.cwd() / 'data'
 
@@ -13,12 +15,15 @@ class UARTSender:
     def __init__(self):
         wiringpi.wiringPiSetupGpio()
         wiringpi.pinMode(IRQ_PIN, OUTPUT_MODE)
-        self.serial = wiringpi.serialOpen('/dev/ttyS0', 115200)
+        self.serial = wiringpi.serialOpen('/dev/ttyS0', BAUDRATE)
 
     def _send_data(self, data):
+        counter = 0
         for line in data:
             wiringpi.serialPuts(self.serial, line)
-            time.sleep(0.002)
+            wiringpi.serialPuts(self.serial, '\n')
+            print(counter, line)
+            counter = counter + 1
         wiringpi.serialPuts(self.serial, 'EOF')
 
     def _read_pixels_file(self, filename):
@@ -37,14 +42,18 @@ class UARTSender:
         return pixel_strings
 
     def _trigger_irq(self):
-        wiringpi.digitalWrite(IRQ_PIN, 1)
-        time.sleep(0.1)
-        wiringpi.digitalWrite(IRQ_PIN, 0)
+        GPIO.setmode(GPIO.BOARD)
+        GPIO.setup(16, GPIO.OUT)
+        GPIO.output(16, 1)
+        time.sleep(1)
+        GPIO.output(16, 0)
+        GPIO.cleanup()
 
     def send_pixels_data(self, filename):
         self._trigger_irq()
         time.sleep(0.03)
         wiringpi.serialPuts(self.serial, 'PIXELS')
+        wiringpi.serialPuts(self.serial, '\n')
         time.sleep(0.03)
         pixel_strings = self._read_pixels_file(filename)
         self._send_data(pixel_strings)
@@ -165,7 +174,7 @@ class UserInterface:
         while True:
             print('1 - Show a Pixel File on the LED-Matrix')
             print('q - Exit the program')
-            user_input = ('Input: ')
+            user_input = input('Input: ')
             if user_input == '1':
                 self._show_pixel_data()
             elif user_input == 'q':
