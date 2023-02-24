@@ -35,17 +35,24 @@ class Matrix:
                         pixel_list.append(int(value))
                     self.pixels.append(pixel_list)
 
-    def read_pixels(self, string_list):
+    def write_to_led(self, string_list):
+        # self.pixels.clear()
         pixels_string = []
         for line in string_list:
             pixels_string.append(line.decode().rstrip())  
 
-        print(pixels_string) 
-
-    def write_to_led(self):
-        for i in range(self.np.n):
-            self.np[i] = self.pixels[i]
+        for i, pixel in enumerate(pixels_string):
+            rgb_value = []
+            pixel = pixel.split(',')
+            for value in pixel:
+                rgb_value.append(int(value))
+            self.np[i] = rgb_value
         self.np.write()
+
+    # def write_to_led(self):
+    #     for i in range(self.np.n):
+    #         self.np[i] = self.pixels[i]
+    #     self.np.write()
 
     def clear(self):
         self.np.fill((0, 0, 0))
@@ -104,7 +111,7 @@ class UARTReceiver:
     def _receive_pixels_data(self):
         self.data.clear()
         gc.collect()
-        counter = 0
+        # counter = 0
         start_time = time.ticks_ms()
         while True:
             line = self.uart.readline()
@@ -112,8 +119,8 @@ class UARTReceiver:
                 break
             if line:
                 self.data.append(line)
-                print(counter, line)
-                counter = counter + 1
+                # print(counter, line)
+                # counter = counter + 1
         self.data.pop()
         stop_time = time.ticks_ms()
         diff_time = time.ticks_diff(stop_time, start_time)
@@ -140,13 +147,13 @@ class Device:
         print('receive data...')
         self.rec.receive()
         print('sucessfully received data')
-        # self.mode = self.rec.command
-        # self.data = self.rec.data
+        self.mode = self.rec.command
+        self.data = self.rec.data
         self.run_loops = False
-        #for value in self.rec.data:
+        # for value in self.rec.data:
         #    print(value)
-        print('length: ', len(self.rec.data))
-        # self._show_on_matrix()
+        print('length:', len(self.rec.data))
+        self._show_on_matrix()
         # print('mode', self.mode)
         # print('data', self.data)
         # print('length', len(self.data))
@@ -154,8 +161,7 @@ class Device:
     def _show_on_matrix(self):
         self.matrix.clear()
         if self.mode == 'PIXELS':
-            self.matrix.read_pixels(self.data)
-            # self.matrix.write_to_led()
+            self.matrix.write_to_led(self.data)
         elif self.mode == 'ANI':
             self.run_loops = True
             while True:
@@ -167,7 +173,7 @@ class Device:
     def start(self):
         self.irq_btn.irq(self._listen_uart, trigger=self.irq_btn.IRQ_RISING)
 
-
+        
 def main():
     device = Device()
     device.start()
