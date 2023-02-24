@@ -15,11 +15,11 @@ BAUDRATE = 38400
 class Matrix:
     def __init__(self, np):
         self.np = np
-        self.pixels = []
+        # self.pixels = []
 
-    def read_pixels_from_file(self, path):
-        self.pixels.clear()
-        with open(path, 'r') as file:
+    def read_pixels_from_file(self, filename):
+        pixels = []
+        with open(f'data/{filename}.pixels', 'r') as file:
             for line in file:
                 gc.collect()
                 line = line.rstrip()
@@ -33,7 +33,13 @@ class Matrix:
                     pixel_list = []
                     for value in pixel.split(','):
                         pixel_list.append(int(value))
-                    self.pixels.append(pixel_list)
+                    pixels.append(pixel_list)
+
+        for i, pixel in enumerate(pixels):
+            self.np[i] = pixels[i]
+        self.np.write()
+        pixels.clear()
+        gc.collect()
 
     def write_to_led(self, string_list):
         # self.pixels.clear()
@@ -169,9 +175,18 @@ class Device:
                     break
                 print('Show Animation')
                 time.sleep(1)
+    
+    
+    def _show_init_screen(self):
+        self.np[15] = (1, 1, 1)
+        self.np[15+256] = (1, 1, 1)
+        self.np[15+2*256] = (1, 1, 1)
+        self.np[15+3*256] = (1, 1, 1)
+        self.np.write()
 
     def start(self):
         self.irq_btn.irq(self._listen_uart, trigger=self.irq_btn.IRQ_RISING)
+        self._show_init_screen()
 
         
 def main():
