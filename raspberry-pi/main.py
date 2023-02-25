@@ -1,5 +1,7 @@
 import time
 from pathlib import Path
+from PIL import Image
+
 import wiringpi
 import RPi.GPIO as GPIO
 
@@ -9,6 +11,10 @@ OUTPUT_MODE = 1
 BAUDRATE = 38400
 
 DATA_FOLDER = Path.cwd() / 'data'
+IMAGE_PATH = Path.cwd() / 'pixel_images'
+MATRIX_COLS = 32
+MATRIX_ROWS = 32
+PIC_BRIGHTNESS = 10
 
 
 class UARTSender:
@@ -158,6 +164,49 @@ class PixelsConverter:
         self._write_pixels_to_file(DATA_FOLDER / f'{filename}-r.pixels')
 
 
+class ImageConverter:
+    def __init__(self):
+        self.image_path = IMAGE_PATH
+        self.data_path = DATA_FOLDER
+        self.qty_rows = MATRIX_ROWS
+        self.qty_cols = MATRIX_COLS
+
+    def _calculate_sizes(self, pillow_img, qty_art_pixel_col):
+        width = pillow_img.size[0]
+        height = pillow_img.size[1]
+        pixel_resolution = int(width / qty_art_pixel_col)
+        center_offset = int(pixel_resolution / 2)
+
+        return width, height, pixel_resolution, center_offset
+    
+    def convert(self, filename, brightness=10):
+        with Image.open(self.image_path / f'{filename}.png') as im:
+            
+            #check for multilayer picture (rgb)
+            if type(im.getpixel((0, 0))) == int:
+                im = im.convert('RGB')
+            width, height, pixel_resolution, center_offset = self._calculate_sizes(im, self.qty_cols)
+
+        pixels = []
+        for y in range(self.qty_cols):
+            row = []
+            for x in range(self.qty_rows):
+                rgb = []
+                for count, value in enumerate(im.getpixel((x*pixel_resolution+center_offset, y*pixel_resolution+center_offset))):
+                    if count == 3:
+                        break
+                    value = int(value * brightness)
+                    rgb.append(value)
+                row.append(rgb)
+            pixels.append(row)
+
+        with open(self.data_path / f'{filename}.pixels', 'w') as file:
+            for row in pixels:
+                for value in row:
+                    file.write(f'{str(value)};')
+                file.write('\n')
+
+
 class UserInterface:
     def __init__(self):
         self.sender = UARTSender()
@@ -185,12 +234,6 @@ class UserInterface:
 
 
 def main():
-    # converter = PixelsConverter()
-    # converter.convert_pixels_file('edges')
-    # converter.convert_pixels_file('edges')
-    # converter.convert_pixels_file('edges')
-    # for i, line in enumerate(converter.rearranged_pixels):
-    #     print(i, line)
     user_interface = UserInterface()
     user_interface.start()
 
