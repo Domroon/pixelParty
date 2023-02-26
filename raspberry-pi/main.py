@@ -11,6 +11,7 @@ OUTPUT_MODE = 1
 BAUDRATE = 38400
 
 DATA_FOLDER = Path.cwd() / 'data'
+ANI_CONFIGS = Path.cwd() / 'ani_configs'
 IMAGE_PATH = Path.cwd() / 'pixel_images'
 MATRIX_COLS = 32
 MATRIX_ROWS = 32
@@ -19,6 +20,7 @@ PIC_BRIGHTNESS = 10
 
 class UARTSender:
     def __init__(self):
+        self.ani_conf = AnimationConfig()
         wiringpi.wiringPiSetupGpio()
         wiringpi.pinMode(IRQ_PIN, OUTPUT_MODE)
         self.serial = wiringpi.serialOpen('/dev/ttyS0', BAUDRATE)
@@ -63,6 +65,18 @@ class UARTSender:
         time.sleep(0.03)
         pixel_strings = self._read_pixels_file(filename)
         self._send_data(pixel_strings)
+
+    def send_animation_data(self, filename):
+        self._trigger_irq()
+        time.sleep(0.03)
+        wiringpi.serialPuts(self.serial, 'ANI\n')
+        time.sleep(0.03)
+        self.ani_conf.read(filename)
+        lines=[]
+        for key, value in self.ani_conf.data.items():
+            lines.append(f'{key}={value}')
+        print(lines)
+        self._send_data(lines)
 
 
 class PixelsConverter:
@@ -181,7 +195,7 @@ class ImageConverter:
     
     def convert(self, filename, brightness=10):
         with Image.open(self.image_path / f'{filename}.png') as im:
-            
+
             #check for multilayer picture (rgb)
             if type(im.getpixel((0, 0))) == int:
                 im = im.convert('RGB')
@@ -207,26 +221,48 @@ class ImageConverter:
                 file.write('\n')
 
 
+class AnimationConfig:
+    def __init__(self):
+        self.data = {}
+        self.config_folder = ANI_CONFIGS
+
+    def read(self, filename):
+        with open(self.config_folder / f'{filename}.ani', 'r') as file:
+            for line in file:
+                items = line.split('=')
+                self.data[items[0]] = items[1].replace('\n', '')
+
+    def write(self, filename):
+        with open(self.config_folder / f'{filename}.ani', 'x') as file:
+            for key, value in self.data.items():
+                file.write(f'{key}={value}\n')
+
+
 class UserInterface:
     def __init__(self):
         self.sender = UARTSender()
         self.converter = PixelsConverter()
+        self.ani_conf = AnimationConfig()
 
     def _show_pixel_data(self):
         filename = input('Please enter a pixels-file-filename from the folder "data": ')
         self.converter.convert_pixels_file(filename)
         self.sender.send_pixels_data(f'{filename}-r.pixels')
 
-    def show_animation(self):
-        pass
+    def _show_animation(self):
+        filename = input('Filename of the Animation-Configuration-File: ')
+        self.sender.send_animation_data(filename)
 
     def start(self):
         while True:
             print('1 - Show a Pixel File on the LED-Matrix')
+            print('2 - Show a Animation on the LED-Matrix')
             print('q - Exit the program')
             user_input = input('Input: ')
             if user_input == '1':
                 self._show_pixel_data()
+            elif user_input == '2':
+                self._show_animation()
             elif user_input == 'q':
                 break
             else:

@@ -10,6 +10,7 @@ UART_TX_PIN = 12
 UART_RX_PIN = 14
 IRQ_PIN = 35
 BAUDRATE = 38400
+ANI_CONFIGS = 'ani_configs'
 
 
 class Matrix:
@@ -69,12 +70,13 @@ class Animation:
     def __init__(self, np, brightness=10):
         self.np = np
         self.br = brightness
+        self.config = AnimationConfig()
 
     def _clear(self):
         self.np.fill((0, 0, 0))
         self.np.write()
     
-    def random_color_flash(self):
+    def random_color_flash(self, sleep_time):
         self.np[randint(0, self.np.n - 1)] = (255, 255, 255)
         self.np[randint(0, self.np.n - 1)] = (255, 0, 0)
         self.np[randint(0, self.np.n - 1)] = (0, 255, 0)
@@ -82,6 +84,7 @@ class Animation:
         self.np[randint(0, self.np.n - 1)] = (255, 0, 255)
         self.np[randint(0, self.np.n - 1)] = (0, 255, 255)
         self.np.write()
+        time.sleep_ms(sleep_time)
         self._clear()
 
     def random_colors(self):
@@ -89,6 +92,27 @@ class Animation:
             max = randint(0, self.br)
             self.np[pos] = (randint(0, max), randint(0, max), randint(0, max))
         self.np.write()
+
+    def show(self):
+        if self.config.data['ani_type'] == 'random_color_flash':
+            self.random_color_flash(int(self.config.data['sleep_time']))
+
+
+class AnimationConfig:
+    def __init__(self):
+        self.data = {}
+        self.config_folder = ANI_CONFIGS
+
+    def read(self, filename):
+        with open(f'{self.config_folder}/{filename}.ani', 'r') as file:
+            for line in file:
+                items = line.split('=')
+                self.data[items[0]] = items[1].replace('\n', '')
+
+    def write(self, filename):
+        with open(f'{self.config_folder}/{filename}.ani', 'x') as file:
+            for key, value in self.data.items():
+                file.write(f'{key}={value}\n')
 
 
 class UARTReceiver:
@@ -133,7 +157,22 @@ class UARTReceiver:
         print(f'Received Pixels-Data in {diff_time} ms')
     
     def _receive_ani_data(self):
-        print('It should now receive the animation type and parameters for that type')
+        self.data.clear()
+        gc.collect()
+        # counter = 0
+        start_time = time.ticks_ms()
+        while True:
+            line = self.uart.readline()
+            if line == b'EOF':
+                break
+            if line:
+                self.data.append(line)
+                # print(counter, line)
+                # counter = counter + 1
+        stop_time = time.ticks_ms()
+        diff_time = time.ticks_diff(stop_time, start_time)
+        print(f'Received Animation-Data in {diff_time} ms')
+        print(self.data)
 
 
 class Device:
@@ -146,7 +185,7 @@ class Device:
         self.irq_btn = Pin(IRQ_PIN, Pin.IN)
         self.mode = None
         self.data = None
-        self.run_loops = False
+        self.show_ani = False
 
     def _listen_uart(self, pin):
         self.data = None
@@ -167,16 +206,16 @@ class Device:
     def _show_on_matrix(self):
         self.matrix.clear()
         if self.mode == 'PIXELS':
+            self.show_ani = False
             self.matrix.write_to_led(self.data)
         elif self.mode == 'ANI':
-            self.run_loops = True
-            while True:
-                if not self.run_loops:
-                    break
-                print('Show Animation')
-                time.sleep(1)
-    
-    
+            for line in self.data:
+                line = line.decode()
+                line = line.split('=')
+                self.ani.config.data[line[0]] = line[1].replace('\n', '')
+            self.matrix.clear()
+            self.show_ani = True
+            
     def _show_init_screen(self):
         self.np[15] = (1, 1, 1)
         self.np[15+256] = (1, 1, 1)
@@ -184,14 +223,20 @@ class Device:
         self.np[15+3*256] = (1, 1, 1)
         self.np.write()
 
+    def _show_ani(self):
+        while True:
+            if self.show_ani:
+                self.ani.show()
+
     def start(self):
         self.irq_btn.irq(self._listen_uart, trigger=self.irq_btn.IRQ_RISING)
         self._show_init_screen()
-
+        self._show_ani()
         
 def main():
     device = Device()
     device.start()
+
 
 
 if __name__ == '__main__':
