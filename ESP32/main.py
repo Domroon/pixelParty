@@ -96,6 +96,8 @@ class Animation:
     def show(self):
         if self.config.data['ani_type'] == 'random_color_flash':
             self.random_color_flash(int(self.config.data['sleep_time']))
+        elif self.config.data['ani_type'] == 'random_colors':
+            self.random_colors()
 
 
 class AnimationConfig:
