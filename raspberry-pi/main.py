@@ -1,4 +1,5 @@
 import time
+import requests
 from pathlib import Path
 from PIL import Image
 
@@ -16,10 +17,13 @@ ANI_CONFIGS = CWD / 'ani_configs'
 IMAGE_PATH = CWD / 'pixel_images'
 WORDS_PATH = CWD / 'words'
 LETTERS_PATH = CWD / 'letters'
+ICONS_PATH = CWD / 'weather_icons'
 
 MATRIX_COLS = 32
 MATRIX_ROWS = 32
 PIC_BRIGHTNESS = 10
+
+WEATHER_API_KEY = '3a9a45b1d4bcf93686f67e679d86e263'
 
 
 class UARTSender:
@@ -348,13 +352,66 @@ class Surface:
                 for value in line:
                     file.write(f'{str(value)};')
                 file.write('\n')
-        
+
+
+class Weather:
+    def __init__(self, icon_folder, key):
+        self.icon_folder = icon_folder
+        self.key = key
+        self.id = None
+        self.main = None
+        self.desc = None
+        self.icon_name = None
+        self.city = None
+        self.temp = None
+        self.humidity = None
+        self.icon_path = None
+
+    def get_weather(self):
+        r = requests.get(f'https://api.openweathermap.org/data/2.5/weather?lat=51.44328996681601&lon=7.353236392707616&appid={self.key}&units=metric&lang=de')
+        current_weather = r.json()
+        # current_weather = current_weather['weather'][0]
+        self.id = current_weather['weather'][0]['id']
+        self.main = current_weather['weather'][0]['main']
+        self.desc = current_weather['weather'][0]['description']
+        self.icon_name = current_weather['weather'][0]['icon']
+        self.city = current_weather['name']
+        self.temp = int(round(current_weather['main']['temp']))
+        self.humidity = int(round(current_weather['main']['humidity']))
+        self._choose_icon_filename()
+
+    def _choose_icon_filename(self):
+        if self.main == 'Thunderstorm':
+            self.icon_name = 'lightning.pixels'
+            self.icon_path = self.icon_folder / self.icon_name
+        elif self.main == 'Drizzle':
+            self.icon_name = 'rain.pixels'
+            self.icon_path = self.icon_folder / self.icon_name
+        elif self.main == 'Rain':
+            self.icon_name = 'rain.pixels'
+            self.icon_path = self.icon_folder / self.icon_name
+        elif self.main == 'Snow':
+            self.icon_name = 'snow.pixels'
+            self.icon_path = self.icon_folder / self.icon_name
+        elif self.main == 'Atmosphere':
+            self.icon_name = 'cloud.pixels'
+            self.icon_path = self.icon_folder / self.icon_name
+        elif self.main == 'Clear':
+            self.icon_name = 'moon.pixels'
+            self.icon_path = self.icon_folder / self.icon_name
+        elif self.main == 'Clouds':
+            self.icon_name == 'cloud.pixels'
+            self.icon_path = self.icon_folder / self.icon_name
+        else:
+            raise Exception('Unknown Weather Name')
+
 
 class UserInterface:
     def __init__(self):
         self.sender = UARTSender()
         self.converter = PixelsConverter()
         self.ani_conf = AnimationConfig()
+        self.weather = Weather(ICONS_PATH, WEATHER_API_KEY)
 
     def _show_pixel_data(self):
         filename = input('Please enter a pixels-file-filename from the folder "data": ')
@@ -378,6 +435,29 @@ class UserInterface:
         self.converter.convert_pixels_file(f'{word.word}.surface')
         self.sender.send_pixels_data(f'{word.word}.surface-r.pixels')
 
+    def _show_actual_weather(self):
+        self.weather.get_weather()
+        size = 5
+        city = Word(self.weather.city, size)
+        city.store_word()
+        main = Word(self.weather.main, size)
+        main.store_word()
+        temp = Word(self.weather.temp)
+        temp.store_word()
+        humidity = Word(self.weather.humidity)
+        humidity.store_word()
+
+        surf = Surface()
+        surf.add(0, 0, WORDS_PATH, f'{city.word}-{size}')
+        surf.add(7, 0, WORDS_PATH, f'{main.word}-{size}')
+        surf.add(14, 0, WORDS_PATH, f'{temp.word}-{size}')
+        surf.add(21, 0, WORDS_PATH, f'{humidity.word}-{size}')
+
+        surf.change_brightness(10)
+        surf.write(DATA_FOLDER, f'weather.surface')
+        self.converter.convert_pixels_file(f'weather.surface')
+        self.sender.send_pixels_data(f'weather.surface-r.pixels')
+
     def start(self):
         while True:
             print('1 - Show a Pixel File on the LED-Matrix')
@@ -400,6 +480,15 @@ class UserInterface:
 def main():
     user_interface = UserInterface()
     user_interface.start()
+    # weather = Weather(ICONS_PATH, WEATHER_API_KEY)
+    # weather.get_weather()
+    # print(weather.id)
+    # print(weather.main)
+    # print(weather.desc)
+    # print(weather.icon_name)
+    # print(weather.city)
+    # print(weather.temp)
+    # print(weather.humidity)
 
 
 if __name__ == '__main__':
