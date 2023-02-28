@@ -336,7 +336,10 @@ class Surface:
         x_length = len(self.pixels[0])
         for y in range(y_length):
             for x in range(x_length):
-                self.surface[y+y_offset][x+x_offset] = self.pixels[y][x]
+                try:
+                    self.surface[y+y_offset][x+x_offset] = self.pixels[y][x]
+                except IndexError:
+                    print(f'WARNING: Not enough place on Surface for file "{filename}"')
 
     def change_brightness(self, br_in_percent):
         for y in range(self.height):
@@ -365,45 +368,39 @@ class Weather:
         self.city = None
         self.temp = None
         self.humidity = None
-        self.icon_path = None
+        self.icon_filename = None
 
     def get_weather(self):
         r = requests.get(f'https://api.openweathermap.org/data/2.5/weather?lat=51.44328996681601&lon=7.353236392707616&appid={self.key}&units=metric&lang=de')
         current_weather = r.json()
         # current_weather = current_weather['weather'][0]
         self.id = current_weather['weather'][0]['id']
-        self.main = current_weather['weather'][0]['main']
+        self.main = current_weather['weather'][0]['main'].upper()
         self.desc = current_weather['weather'][0]['description']
         self.icon_name = current_weather['weather'][0]['icon']
-        self.city = current_weather['name']
+        self.city = current_weather['name'].upper()
         self.temp = int(round(current_weather['main']['temp']))
         self.humidity = int(round(current_weather['main']['humidity']))
         self._choose_icon_filename()
 
     def _choose_icon_filename(self):
-        if self.main == 'Thunderstorm':
-            self.icon_name = 'lightning.pixels'
-            self.icon_path = self.icon_folder / self.icon_name
-        elif self.main == 'Drizzle':
-            self.icon_name = 'rain.pixels'
-            self.icon_path = self.icon_folder / self.icon_name
-        elif self.main == 'Rain':
-            self.icon_name = 'rain.pixels'
-            self.icon_path = self.icon_folder / self.icon_name
-        elif self.main == 'Snow':
-            self.icon_name = 'snow.pixels'
-            self.icon_path = self.icon_folder / self.icon_name
-        elif self.main == 'Atmosphere':
-            self.icon_name = 'cloud.pixels'
-            self.icon_path = self.icon_folder / self.icon_name
-        elif self.main == 'Clear':
-            self.icon_name = 'moon.pixels'
-            self.icon_path = self.icon_folder / self.icon_name
-        elif self.main == 'Clouds':
-            self.icon_name == 'cloud.pixels'
-            self.icon_path = self.icon_folder / self.icon_name
+        if self.main == 'Thunderstorm'.upper():
+            self.icon_filename = 'lightning'
+        elif self.main == 'Drizzle'.upper():
+            self.icon_filename = 'rain'
+        elif self.main == 'Rain'.upper():
+            self.icon_filename = 'rain'
+        elif self.main == 'Snow'.upper():
+            self.icon_filename = 'snow'
+        elif self.main == 'Atmosphere'.upper():
+            self.icon_filename = 'cloud'
+        elif self.main == 'Clear'.upper():
+            self.icon_filename = 'moon'
+        elif self.main == 'Clouds'.upper():
+            self.icon_filename = 'cloud'
         else:
-            raise Exception('Unknown Weather Name')
+            raise Exception(f'Unknown Weather Name: {self.main}')
+        print('icon filename', self.icon_filename)
 
 
 class UserInterface:
@@ -442,18 +439,19 @@ class UserInterface:
         city.store_word()
         main = Word(self.weather.main, size)
         main.store_word()
-        temp = Word(self.weather.temp)
+        temp = Word(str(self.weather.temp), size)
         temp.store_word()
-        humidity = Word(self.weather.humidity)
+        humidity = Word(str(self.weather.humidity), size)
         humidity.store_word()
 
         surf = Surface()
-        surf.add(0, 0, WORDS_PATH, f'{city.word}-{size}')
-        surf.add(7, 0, WORDS_PATH, f'{main.word}-{size}')
-        surf.add(14, 0, WORDS_PATH, f'{temp.word}-{size}')
-        surf.add(21, 0, WORDS_PATH, f'{humidity.word}-{size}')
+        surf.add(0, 1, WORDS_PATH, f'{city.word}-{size}')
+        surf.add(1, 8, WORDS_PATH, f'{main.word}-{size}')
+        surf.add(1, 15, WORDS_PATH, f'{temp.word}-{size}')
+        surf.add(1, 22, WORDS_PATH, f'{humidity.word}-{size}')
+        surf.add(15, 15, ICONS_PATH, self.weather.icon_filename)
 
-        surf.change_brightness(10)
+        surf.change_brightness(3)
         surf.write(DATA_FOLDER, f'weather.surface')
         self.converter.convert_pixels_file(f'weather.surface')
         self.sender.send_pixels_data(f'weather.surface-r.pixels')
@@ -463,6 +461,7 @@ class UserInterface:
             print('1 - Show a Pixel File on the LED-Matrix')
             print('2 - Show a Animation on the LED-Matrix')
             print('3 - Show a Word on the the LED-Matrix')
+            print('4 - Show a Weather')
             print('q - Exit the program')
             user_input = input('Input: ')
             if user_input == '1':
@@ -471,6 +470,8 @@ class UserInterface:
                 self._show_animation()
             elif user_input == '3':
                 self._show_word()
+            elif user_input == '4':
+                self._show_actual_weather()
             elif user_input == 'q':
                 break
             else:
@@ -480,15 +481,6 @@ class UserInterface:
 def main():
     user_interface = UserInterface()
     user_interface.start()
-    # weather = Weather(ICONS_PATH, WEATHER_API_KEY)
-    # weather.get_weather()
-    # print(weather.id)
-    # print(weather.main)
-    # print(weather.desc)
-    # print(weather.icon_name)
-    # print(weather.city)
-    # print(weather.temp)
-    # print(weather.humidity)
 
 
 if __name__ == '__main__':
