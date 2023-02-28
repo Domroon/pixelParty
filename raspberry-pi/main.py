@@ -10,9 +10,13 @@ IRQ_PIN = 4
 OUTPUT_MODE = 1
 BAUDRATE = 38400
 
-DATA_FOLDER = Path.cwd() / 'data'
-ANI_CONFIGS = Path.cwd() / 'ani_configs'
-IMAGE_PATH = Path.cwd() / 'pixel_images'
+CWD = Path.cwd()
+DATA_FOLDER = CWD / 'data'
+ANI_CONFIGS = CWD / 'ani_configs'
+IMAGE_PATH = CWD / 'pixel_images'
+WORDS_PATH = CWD / 'words'
+LETTERS_PATH = CWD / 'letters'
+
 MATRIX_COLS = 32
 MATRIX_ROWS = 32
 PIC_BRIGHTNESS = 10
@@ -238,6 +242,114 @@ class AnimationConfig:
                 file.write(f'{key}={value}\n')
 
 
+class Letter:
+    def __init__(self, letter):
+        self.letter = letter
+        self.pixel_columns = []
+        self._load_letter()
+
+    def _load_letter(self):
+        with open(LETTERS_PATH / f'{self.letter}.pixels') as file:
+            for line in file:
+                line = line.replace('\n', '')
+                self.pixel_columns.append(line)
+
+
+class Word:
+    def __init__(self, word, size):
+        self.word = word
+        self.size = size
+        self.letters = []
+        self._load_letters()
+        self.pixel_word = None
+
+    def _load_letters(self):
+        for letter in self.word:
+            self.letters.append(Letter(letter))
+
+    def _last_col_is_empty(self, letter):
+        for col in letter:
+            if col.split(';')[-2] != "[0, 0, 0]":
+                return False
+        return True
+
+    def _append_letter(self, letter):
+        for i in range(len(self.pixel_word)):
+            if not self._last_col_is_empty(letter):
+                self.pixel_word[i] = self.pixel_word[i] + '[0, 0, 0];'
+            self.pixel_word[i] = self.pixel_word[i] + letter[i]
+
+    def _merge_all_letters(self):
+        self.letters.reverse()
+        self.pixel_word = self.letters.pop().pixel_columns
+        while self.letters:
+            self._append_letter(self.letters.pop().pixel_columns)
+
+    def store_word(self):
+        self._merge_all_letters()
+        with open(WORDS_PATH / f'{self.word}-{self.size}.pixels', 'w') as file:
+            for i in range(len(self.pixel_word)):
+                self.pixel_word[i] = self.pixel_word[i].replace('\r', '')
+            for row in self.pixel_word:
+                file.write(f'{row}\n')
+
+
+class Surface:
+    def __init__(self, width=MATRIX_COLS, height=MATRIX_ROWS):
+        self.width = width
+        self.height = height
+        self.surface = []
+        self.pixels = []
+        self._create_surface()
+
+    def _create_surface(self):
+        for y in range(self.height):
+            self.surface.append([])
+            for _ in range(self.width):
+                self.surface[y].append([0, 0, 0])
+
+    def _read_pixels_file(self, folder, filename):
+        self.pixels.clear()
+        with open(folder / f'{filename}.pixels', 'r') as file:
+            for line in file:
+                line = line.rstrip()
+                line = line.split(';')
+                del line[-1]
+                line_list = []
+                for pixel in line:
+                    pixel = pixel.replace('[', '')
+                    pixel = pixel.replace(']', '')
+                    pixel = pixel.replace(' ', '')
+                    pixel_list = []
+                    for value in pixel.split(','):
+                        pixel_list.append(int(value))
+                    line_list.append(pixel_list)
+                self.pixels.append(line_list)
+
+    def add(self, x_offset, y_offset, folder, filename):
+        self._read_pixels_file(folder, filename)
+        y_length = len(self.pixels)
+        x_length = len(self.pixels[0])
+        for y in range(y_length):
+            for x in range(x_length):
+                self.surface[y+y_offset][x+x_offset] = self.pixels[y][x]
+
+    def change_brightness(self, br_in_percent):
+        for y in range(self.height):
+            for x in range(self.width):
+                new_pixel_value = []
+                for value in self.surface[y][x]:
+                    new_pixel_value.append(int(value*br_in_percent*0.01))
+                self.surface[y][x] = new_pixel_value
+
+    def write(self, folder, filename):
+        with open(folder / f'{filename}.pixels', 'w') as file:
+            for line in self.surface:
+                for value in line:
+                    file.write(f'{str(value)};')
+                file.write('\n')
+        
+
 class UserInterface:
     def __init__(self):
         self.sender = UARTSender()
@@ -253,16 +365,32 @@ class UserInterface:
         filename = input('Filename of the Animation-Configuration-File: ')
         self.sender.send_animation_data(filename)
 
+    def _show_word(self):
+        user_input = input('Please enter a Word (only uppercase): ')
+        size = 5
+        word = Word(user_input, size)
+        word.store_word()
+        surf = Surface()
+        surf.add(0, 0, WORDS_PATH, f'{word.word}-{size}')
+        user_input = input('Please enter brightness in %: ')
+        surf.change_brightness(int(user_input))
+        surf.write(DATA_FOLDER, f'{word.word}.surface')
+        self.converter.convert_pixels_file(f'{word.word}.surface')
+        self.sender.send_pixels_data(f'{word.word}.surface-r.pixels')
+
     def start(self):
         while True:
             print('1 - Show a Pixel File on the LED-Matrix')
             print('2 - Show a Animation on the LED-Matrix')
+            print('3 - Show a Word on the the LED-Matrix')
             print('q - Exit the program')
             user_input = input('Input: ')
             if user_input == '1':
                 self._show_pixel_data()
             elif user_input == '2':
                 self._show_animation()
+            elif user_input == '3':
+                self._show_word()
             elif user_input == 'q':
                 break
             else:
