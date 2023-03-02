@@ -3,8 +3,8 @@ import requests
 from pathlib import Path
 from PIL import Image
 
-import wiringpi
-import RPi.GPIO as GPIO
+# import wiringpi
+# import RPi.GPIO as GPIO
 
 
 IRQ_PIN = 4
@@ -24,6 +24,7 @@ MATRIX_ROWS = 32
 PIC_BRIGHTNESS = 10
 
 WEATHER_API_KEY = '3a9a45b1d4bcf93686f67e679d86e263'
+NEWS_API_KEY = '5db667c899c24686b19f6565c0c63ee3'
 
 
 class UARTSender:
@@ -253,7 +254,11 @@ class Letter:
         self._load_letter()
 
     def _load_letter(self):
-        with open(LETTERS_PATH / f'{self.letter}.pixels') as file:
+        path = LETTERS_PATH / f'{self.letter}.pixels'
+        if self.letter == ' ':
+            path = LETTERS_PATH / 'space.pixels'
+
+        with open(path) as file:
             for line in file:
                 line = line.replace('\n', '')
                 self.pixel_columns.append(line)
@@ -478,9 +483,45 @@ class UserInterface:
                 print('Wrong Input. Please try again')
 
 
+class News:
+    def __init__(self, api_key):
+        self.api_key = api_key
+        self.sources = None
+        self.headlines = None
+
+    def get_sources(self):
+        self.sources = requests.get(f'https://newsapi.org/v2/top-headlines/sources?apiKey={self.api_key}').json()['sources']
+
+    def filter_language(self, language):
+        tmp_list = []
+        for source in self.sources:
+            if source['language'] == language:
+                tmp_list.append(source)
+        self.sources.clear()
+        self.sources = tmp_list
+
+    def get_headlines(self, source):
+        self.headlines = requests.get(f'https://newsapi.org/v2/top-headlines?sources={source}&apiKey={self.api_key}').json()['articles']
+
+
+
 def main():
-    user_interface = UserInterface()
-    user_interface.start()
+    # user_interface = UserInterface()
+    # user_interface.start()
+    # news = News(NEWS_API_KEY)
+    # news.get_sources()
+    # news.filter_language('de')
+    # news.get_headlines('die-zeit')
+    # for source in news.sources:
+    #     print(source)
+    # for hl in news.headlines:
+    #     print(hl)
+    # mach word objekte um wörter in pixelobjekte umzuwandeln
+    # für den esp32 muss scrolling implementiert werden, damit 
+    # lange nachrichtentexte "durchfahren können"
+    word = Word("HEY DU WAS GEHT AB", 5)
+    word.store_word()
+
 
 
 if __name__ == '__main__':

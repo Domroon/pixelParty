@@ -51,3 +51,7 @@ https://www.textfixer.de/html/html-komprimieren.php
 ## Copy Project on RaspberryPi
 
     scp -O -r ./pixelParty domroon@pixel-master.local:/home/domroon
+
+## News API
+
+https://newsapi.org
