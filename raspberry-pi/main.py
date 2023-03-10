@@ -554,9 +554,38 @@ class UserInterface:
 
     def _show_real_news(self):
         user_input = input('Enter a news id: ')
+        user_input_brightness = input('Please enter brightness in %: ')
         self.news.get_headlines(user_input)
-        for headline in self.news.headlines:
-            print(headline['title'])
+        size = 5
+        for headline_text in self.news.headlines:
+            headline_converted = headline_text['title'].upper()
+            print(headline_converted)
+
+            headline = Word(headline_converted.upper(), size)
+            headline_len = len(headline.letters)
+            print(f'Word letters qty: {headline_len - 2}' )
+            headline.store_word()
+
+            news_source = Word(user_input.upper(), 5)
+            news_source.store_word()
+
+            surf = Surface()
+            surf.add(0, 6, WORDS_PATH, f'{headline.word}-{size}')
+            surf.add(0, 17, WORDS_PATH, f'{news_source.word}-{size}')
+            
+            surf.change_brightness(int(user_input_brightness))
+            surf.write(DATA_FOLDER, f'{headline.word}.surface')
+            self.converter.convert_pixels_file(f'{headline.word}.surface')
+            self.sender.send_pixels_data(f'{headline.word}.surface-r.pixels')
+            time.sleep(1)
+            for i in range(1, int(headline_len/2)):
+                surf.add(i *(-10), 6, WORDS_PATH, f'{headline.word}-{size}')
+                #user_input = input('Please enter brightness in %: ')
+                surf.change_brightness(int(user_input_brightness))
+                surf.write(DATA_FOLDER, f'{headline.word}.surface')
+                self.converter.convert_pixels_file(f'{headline.word}.surface')
+                self.sender.send_pixels_data(f'{headline.word}.surface-r.pixels', half=True)
+                time.sleep(0.3)
 
     def _show_news_ids(self):
         print()
