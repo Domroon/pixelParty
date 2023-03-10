@@ -266,6 +266,18 @@ class Letter:
         path = LETTERS_PATH / f'{self.letter}.pixels'
         if self.letter == ' ':
             path = LETTERS_PATH / 'space.pixels'
+        elif self.letter == '.':
+            path = LETTERS_PATH / 'dot.pixels'
+        elif self.letter == '-':
+            path = LETTERS_PATH / 'minus.pixels'
+        elif self.letter == ':':
+            path = LETTERS_PATH / 'colon.pixels'
+        elif self.letter == ';':
+            path = LETTERS_PATH / 'semicolon.pixels'
+        elif self.letter == '?':
+            path = LETTERS_PATH / 'questionmark.pixels'
+        elif self.letter == ',':
+            path = LETTERS_PATH / 'comma.pixels'
 
         with open(path) as file:
             for line in file:
@@ -293,8 +305,8 @@ class Word:
 
     def _append_letter(self, letter):
         for i in range(len(self.pixel_word)):
-            if not self._last_col_is_empty(letter):
-                self.pixel_word[i] = self.pixel_word[i] + '[0, 0, 0];'
+            # if not self._last_col_is_empty(letter):
+            #     self.pixel_word[i] = self.pixel_word[i] + '[0, 0, 0];'
             self.pixel_word[i] = self.pixel_word[i] + letter[i]
 
     def _merge_all_letters(self):
