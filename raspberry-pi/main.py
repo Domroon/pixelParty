@@ -278,7 +278,13 @@ class Letter:
             path = LETTERS_PATH / 'questionmark.pixels'
         elif self.letter == ',':
             path = LETTERS_PATH / 'comma.pixels'
-
+        elif self.letter == '=':
+            path = LETTERS_PATH / 'equal.pixels'
+        elif self.letter == '!':
+            path = LETTERS_PATH / 'exclamation.pixels'
+        elif self.letter == '+':
+            path = LETTERS_PATH / 'plus.pixels'
+        
         with open(path) as file:
             for line in file:
                 line = line.replace('\n', '')
