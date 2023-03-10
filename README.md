@@ -51,7 +51,31 @@ https://www.textfixer.de/html/html-komprimieren.php
 ## Copy Project on RaspberryPi
 
     scp -O -r ./pixelParty domroon@pixel-master.local:/home/domroon
+    scp -O -r ~/Workspace/pixelParty/raspberry-pi domroon@pixel-master.local:/home/domroon/pixelParty
 
 ## News API
 
 https://newsapi.org
+
+
+## SPI Communication
+https://raspberrypi-aa.github.io/session3/spi.html
+https://www.mathworks.com/help/supportpkg/raspberrypiio/spi-interface.html
+https://www.takaitra.com/spi-device-raspberry-pi/
+https://www.youtube.com/watch?v=dzVLRjH5i78
+http://www.penguintutor.com/electronics/rpi-arduino-spi
+https://www.sigmdel.ca/michel/ha/rpi/dnld/draft_spidev_doc.pdf
+https://sigmdel.ca/michel/ha/rpi/spi_on_pi_en.html
+https://github.com/WiringPi/WiringPi-Python
+
+https://docs.micropython.org/en/latest/esp32/quickref.html#software-spi-bus
+
+
+# I2C Communication
+https://pypi.org/project/smbus2/
+
+https://docs.micropython.org/en/latest/library/machine.I2C.html#machine-i2c
+
+
+# UART Communication
+https://www.electronicwings.com/raspberry-pi/raspberry-pi-uart-communication-using-python-and-c

@@ -6,10 +6,11 @@ import gc
 
 
 MATRIX_PIN = 33
-UART_TX_PIN = 12
-UART_RX_PIN = 14
+UART_TX_PIN = 17
+UART_RX_PIN = 16
 IRQ_PIN = 35
-BAUDRATE = 38400
+BAUDRATE =  115200 #38400 
+
 ANI_CONFIGS = 'ani_configs'
 
 
@@ -48,6 +49,7 @@ class Matrix:
         for line in string_list:
             pixels_string.append(line.decode().rstrip())  
 
+        # self.clear()
         for i, pixel in enumerate(pixels_string):
             rgb_value = []
             pixel = pixel.split(',')
@@ -122,7 +124,7 @@ class UARTReceiver:
         self.uart = UART(1, baudrate=BAUDRATE, tx=UART_TX_PIN, rx=UART_RX_PIN, timeout=1000)
         self.command = None
         self.data = []
-        
+    
     def receive(self):
         while True:
             line = self.uart.readline()
@@ -139,6 +141,7 @@ class UARTReceiver:
             self._receive_ani_data()
         else:
             raise Exception(f'Unknown Command from UART: {line}')
+        print(f'Length: {len(self.data)}')
     
     def _receive_pixels_data(self):
         self.data.clear()
@@ -199,14 +202,14 @@ class Device:
         self.run_loops = False
         # for value in self.rec.data:
         #    print(value)
-        print('length:', len(self.rec.data))
+        # print('length:', len(self.rec.data))
         self._show_on_matrix()
         # print('mode', self.mode)
         # print('data', self.data)
         # print('length', len(self.data))
 
     def _show_on_matrix(self):
-        self.matrix.clear()
+        # self.matrix.clear()
         if self.mode == 'PIXELS':
             self.show_ani = False
             self.matrix.write_to_led(self.data)
@@ -229,16 +232,18 @@ class Device:
         while True:
             if self.show_ani:
                 self.ani.show()
+            else:
+                time.sleep(1)
 
     def start(self):
         self.irq_btn.irq(self._listen_uart, trigger=self.irq_btn.IRQ_RISING)
         self._show_init_screen()
         self._show_ani()
+    
         
 def main():
     device = Device()
     device.start()
-
 
 
 if __name__ == '__main__':

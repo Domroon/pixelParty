@@ -3,13 +3,14 @@ import requests
 from pathlib import Path
 from PIL import Image
 
-# import wiringpi
-# import RPi.GPIO as GPIO
+import wiringpi
+import RPi.GPIO as GPIO
+# import spidev
 
 
 IRQ_PIN = 4
 OUTPUT_MODE = 1
-BAUDRATE = 38400
+BAUDRATE = 115200 # 38400 
 
 CWD = Path.cwd()
 DATA_FOLDER = CWD / 'data'
@@ -34,13 +35,16 @@ class UARTSender:
         wiringpi.pinMode(IRQ_PIN, OUTPUT_MODE)
         self.serial = wiringpi.serialOpen('/dev/ttyS0', BAUDRATE)
 
-    def _send_data(self, data):
+    def _send_data(self, data, half):
         counter = 0
-        for line in data:
+        for i, line in enumerate(data):
+            if i >= len(data)/2 and half:
+                break
             wiringpi.serialPuts(self.serial, line)
             wiringpi.serialPuts(self.serial, '\n')
             print(counter, line)
             counter = counter + 1
+            time.sleep(0.000017)
         wiringpi.serialPuts(self.serial, 'EOF')
 
     def _read_pixels_file(self, filename):
@@ -66,14 +70,14 @@ class UARTSender:
         GPIO.output(16, 0)
         GPIO.cleanup()
 
-    def send_pixels_data(self, filename):
+    def send_pixels_data(self, filename, half=False):
         self._trigger_irq()
         time.sleep(0.03)
         wiringpi.serialPuts(self.serial, 'PIXELS')
         wiringpi.serialPuts(self.serial, '\n')
         time.sleep(0.03)
         pixel_strings = self._read_pixels_file(filename)
-        self._send_data(pixel_strings)
+        self._send_data(pixel_strings, half)
 
     def send_animation_data(self, filename):
         self._trigger_irq()
@@ -85,7 +89,12 @@ class UARTSender:
         for key, value in self.ani_conf.data.items():
             lines.append(f'{key}={value}')
         print(lines)
-        self._send_data(lines)
+        self._send_data(lines, half=False)
+
+    def set_init_screen(self):
+        self._trigger_irq()
+        time.sleep(0.03)
+        wiringpi.serialPuts(self.serial, 'INIT\n')
 
 
 class PixelsConverter:
@@ -266,7 +275,7 @@ class Letter:
 
 class Word:
     def __init__(self, word, size):
-        self.word = word
+        self.word = word + "    "
         self.size = size
         self.letters = []
         self._load_letters()
@@ -339,12 +348,20 @@ class Surface:
         self._read_pixels_file(folder, filename)
         y_length = len(self.pixels)
         x_length = len(self.pixels[0])
+        err_counter = 0
         for y in range(y_length):
             for x in range(x_length):
                 try:
-                    self.surface[y+y_offset][x+x_offset] = self.pixels[y][x]
+                    if x + x_offset < 0 or y + y_offset < 0:
+                        self.surface[y+y_offset][x+x_offset] = [0, 0, 0]
+                    else:
+                        self.surface[y+y_offset][x+x_offset] = self.pixels[y][x]
                 except IndexError:
-                    print(f'WARNING: Not enough place on Surface for file "{filename}"')
+                    if err_counter == 0:
+                        print(f'WARNING: Not enough place on Surface for file "{filename}"')
+                    else:
+                        pass
+                    err_counter = 1
 
     def change_brightness(self, br_in_percent):
         for y in range(self.height):
@@ -414,6 +431,7 @@ class UserInterface:
         self.converter = PixelsConverter()
         self.ani_conf = AnimationConfig()
         self.weather = Weather(ICONS_PATH, WEATHER_API_KEY)
+        self.news = News(NEWS_API_KEY)
 
     def _show_pixel_data(self):
         filename = input('Please enter a pixels-file-filename from the folder "data": ')
@@ -436,6 +454,61 @@ class UserInterface:
         surf.write(DATA_FOLDER, f'{word.word}.surface')
         self.converter.convert_pixels_file(f'{word.word}.surface')
         self.sender.send_pixels_data(f'{word.word}.surface-r.pixels')
+
+    def _show_scroll_word(self):
+        user_input = input('Please enter a Word (only uppercase): ')
+        size = 5
+        word = Word(user_input, size)
+        word_len = len(word.letters)
+        print(f'Word letters qty: {word_len - 2}' )
+        word.store_word()
+        surf = Surface()
+        surf.add(0, 0, WORDS_PATH, f'{word.word}-{size}')
+        user_input = input('Please enter brightness in %: ')
+        surf.change_brightness(int(user_input))
+        surf.write(DATA_FOLDER, f'{word.word}.surface')
+        self.converter.convert_pixels_file(f'{word.word}.surface')
+        self.sender.send_pixels_data(f'{word.word}.surface-r.pixels')
+        time.sleep(1)
+        for i in range(1, int(word_len/2)):
+            surf.add(i *(-10), 0, WORDS_PATH, f'{word.word}-{size}')
+            #user_input = input('Please enter brightness in %: ')
+            surf.change_brightness(int(user_input))
+            surf.write(DATA_FOLDER, f'{word.word}.surface')
+            self.converter.convert_pixels_file(f'{word.word}.surface')
+            self.sender.send_pixels_data(f'{word.word}.surface-r.pixels', half=True)
+            time.sleep(0.3)
+
+    def _show_news(self):
+        user_input_source = input('Please enter a news source name(only uppercase): ')
+        user_input = input('Please enter a headline text(only uppercase): ')
+        size = 5
+
+        headline = Word(user_input, size)
+        headline_len = len(headline.letters)
+        print(f'Word letters qty: {headline_len - 2}' )
+        headline.store_word()
+
+        news_source = Word(user_input_source, size)
+        news_source.store_word()
+
+        surf = Surface()
+        surf.add(0, 6, WORDS_PATH, f'{headline.word}-{size}')
+        surf.add(0, 17, WORDS_PATH, f'{news_source.word}-{size}')
+        user_input = input('Please enter brightness in %: ')
+        surf.change_brightness(int(user_input))
+        surf.write(DATA_FOLDER, f'{headline.word}.surface')
+        self.converter.convert_pixels_file(f'{headline.word}.surface')
+        self.sender.send_pixels_data(f'{headline.word}.surface-r.pixels')
+        time.sleep(1)
+        for i in range(1, int(headline_len/2)):
+            surf.add(i *(-10), 6, WORDS_PATH, f'{headline.word}-{size}')
+            #user_input = input('Please enter brightness in %: ')
+            surf.change_brightness(int(user_input))
+            surf.write(DATA_FOLDER, f'{headline.word}.surface')
+            self.converter.convert_pixels_file(f'{headline.word}.surface')
+            self.sender.send_pixels_data(f'{headline.word}.surface-r.pixels', half=True)
+            time.sleep(0.3)
 
     def _show_actual_weather(self):
         self.weather.get_weather()
@@ -461,12 +534,30 @@ class UserInterface:
         self.converter.convert_pixels_file(f'weather.surface')
         self.sender.send_pixels_data(f'weather.surface-r.pixels')
 
+    def _show_real_news(self):
+        user_input = input('Enter a news id: ')
+        self.news.get_headlines(user_input)
+        for headline in self.news.headlines:
+            print(headline['title'])
+
+    def _show_news_ids(self):
+        print()
+        self.news.get_sources()
+        self.news.filter_language('de')
+        for source in self.news.sources:
+            print(source['id'])
+        print()
+
     def start(self):
         while True:
             print('1 - Show a Pixel File on the LED-Matrix')
             print('2 - Show a Animation on the LED-Matrix')
             print('3 - Show a Word on the the LED-Matrix')
             print('4 - Show a Weather')
+            print('5 - Show scroll Word')
+            print('6 - Show pseudo News')
+            print('7 - Show news source ids')
+            print('8 - Show real news')
             print('q - Exit the program')
             user_input = input('Input: ')
             if user_input == '1':
@@ -477,6 +568,14 @@ class UserInterface:
                 self._show_word()
             elif user_input == '4':
                 self._show_actual_weather()
+            elif user_input == '5':
+                self._show_scroll_word()
+            elif user_input == '6':
+                self._show_news()
+            elif user_input == '7':
+                self._show_news_ids()
+            elif user_input == '8':
+                self._show_real_news()
             elif user_input == 'q':
                 break
             else:
@@ -504,24 +603,9 @@ class News:
         self.headlines = requests.get(f'https://newsapi.org/v2/top-headlines?sources={source}&apiKey={self.api_key}').json()['articles']
 
 
-
 def main():
-    # user_interface = UserInterface()
-    # user_interface.start()
-    # news = News(NEWS_API_KEY)
-    # news.get_sources()
-    # news.filter_language('de')
-    # news.get_headlines('die-zeit')
-    # for source in news.sources:
-    #     print(source)
-    # for hl in news.headlines:
-    #     print(hl)
-    # mach word objekte um wörter in pixelobjekte umzuwandeln
-    # für den esp32 muss scrolling implementiert werden, damit 
-    # lange nachrichtentexte "durchfahren können"
-    word = Word("HEY DU WAS GEHT AB", 5)
-    word.store_word()
-
+    user_interface = UserInterface()
+    user_interface.start()
 
 
 if __name__ == '__main__':
