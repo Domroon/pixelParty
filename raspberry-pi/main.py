@@ -2,16 +2,18 @@ import time
 import requests
 from pathlib import Path
 from PIL import Image
+from logging import getLogger
 
 import wiringpi
 import RPi.GPIO as GPIO
-# import spidev
+import paho.mqtt.client as pahoMqtt
 
-
+# UART
 IRQ_PIN = 4
 OUTPUT_MODE = 1
-BAUDRATE = 115200 # 38400 
+BAUDRATE = 115200 
 
+# PATHs
 CWD = Path.cwd()
 DATA_FOLDER = CWD / 'data'
 ANI_CONFIGS = CWD / 'ani_configs'
@@ -20,12 +22,24 @@ WORDS_PATH = CWD / 'words'
 LETTERS_PATH = CWD / 'letters'
 ICONS_PATH = CWD / 'weather_icons'
 
+# MATRIX
 MATRIX_COLS = 32
 MATRIX_ROWS = 32
 PIC_BRIGHTNESS = 10
 
+# APIs
 WEATHER_API_KEY = '3a9a45b1d4bcf93686f67e679d86e263'
 NEWS_API_KEY = '5db667c899c24686b19f6565c0c63ee3'
+
+# MQTT
+USERNAME = "domroon"
+PASSWORD = "MPCkY5DGuU19sGgpvQvgYqN8Uw0"
+DEVICE_NAME = "pixel-master"
+COMPUTER_NAME = "computer-client"
+
+
+logger = getLogger('mqttInput')
+logger.setLevel(pahoMqtt.MQTT_LOG_INFO)
 
 
 class UARTSender:
@@ -650,9 +664,83 @@ class News:
         self.headlines = requests.get(f'https://newsapi.org/v2/top-headlines?sources={source}&apiKey={self.api_key}').json()['articles']
 
 
+class MQTTClient:
+    def __init__(self, broker_ip, device_name=DEVICE_NAME, username=USERNAME, password=PASSWORD):
+        self.broker_ip = broker_ip
+        self.device_name = device_name
+        self.username = username
+        self.password = password
+        self.client = pahoMqtt.Client(self.device_name, clean_session=True)
+
+        self.sender = UARTSender()
+        self.converter = PixelsConverter()
+        self.ani_conf = AnimationConfig()
+        self.weather = Weather(ICONS_PATH, WEATHER_API_KEY)
+        self.news = News(NEWS_API_KEY)
+
+    def on_connect(self, client, userdata, flags, rc):
+        print(f'Connected with result code {rc}')
+        self.client.subscribe(f'{COMPUTER_NAME}/#', qos=1)
+        self.client.subscribe(f'{DEVICE_NAME}/#', qos=1)
+        self.client.publish(f'{DEVICE_NAME}/status', 'online', qos=1)
+
+    def on_message(self, client, userdata, msg):
+        print(f'{msg.topic} {msg.payload}')
+
+    def on_show_scroll_text(self, client, userdata, msg):
+        size = 5
+        text = msg.payload.decode()
+        word = Word(text, size)
+        word_len = len(word.letters)
+        print(f'Word letters qty: {word_len - 2}' )
+        word.store_word()
+        surf = Surface()
+        surf.add(0, 0, WORDS_PATH, f'{word.word}-{size}')
+        user_input = '10' #input('Please enter brightness in %: ')
+        surf.change_brightness(int(user_input))
+        surf.write(DATA_FOLDER, f'{word.word}.surface')
+        self.converter.convert_pixels_file(f'{word.word}.surface')
+        self.sender.send_pixels_data(f'{word.word}.surface-r.pixels')
+        time.sleep(1)
+        for i in range(1, int(word_len/2)):
+            surf.add(i *(-10), 0, WORDS_PATH, f'{word.word}-{size}')
+            #user_input = input('Please enter brightness in %: ')
+            surf.change_brightness(int(user_input))
+            surf.write(DATA_FOLDER, f'{word.word}.surface')
+            self.converter.convert_pixels_file(f'{word.word}.surface')
+            self.sender.send_pixels_data(f'{word.word}.surface-r.pixels', half=True)
+            time.sleep(0.3)
+
+    def start(self):
+        self.client.will_set(f'{DEVICE_NAME}/status', 'offline', qos=1)
+        self.client.username_pw_set(self.username, self.password)
+        self.client.enable_logger(logger=logger)
+        self.client.message_callback_add(f'{DEVICE_NAME}/scroll_text', self.on_show_scroll_text)
+
+        # callbacks
+        self.client.on_connect = self.on_connect
+        self.client.on_message = self.on_message
+
+        self.client.connect_async(self.broker_ip, 1884, 10)
+        self.client.loop_start()
+
+
 def main():
-    user_interface = UserInterface()
-    user_interface.start()
+    while True:
+        print('a - Start UserInterface')
+        print('b - Start MQTTClient')
+        user_input = input('Input: \n')
+        if user_input == 'a':
+            user_interface = UserInterface()
+            user_interface.start()
+            break
+        elif user_input == 'b':
+            broker_ip = input('Please Enter the Broker IP: ')
+            mqtt_client = MQTTClient(broker_ip)
+            mqtt_client.start()
+            # break
+        else:
+            print('Wrong Input. Try again.')
 
 
 if __name__ == '__main__':

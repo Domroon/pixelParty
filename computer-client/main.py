@@ -9,7 +9,7 @@ import paho.mqtt.publish as publish
 USERNAME = "domroon"
 PASSWORD = "MPCkY5DGuU19sGgpvQvgYqN8Uw0"
 CWD = Path.cwd()
-DEVICE_NAME = 'computer_client'
+DEVICE_NAME = 'computer-client'
 MATRIX_NAME = 'pixel-master'
 
 logger = getLogger('mqttInput')
@@ -91,7 +91,7 @@ def main():
             user_ani = input('Input: \n')
             while True:
                 if user_ani == 'a':
-                    client.publish(f'{MATRIX_NAME}/animation' 'random_colors')
+                    client.publish(f'{MATRIX_NAME}/animation', 'random_colors')
                     break
                 elif user_ani == 'b':
                     sleep_time = input('Please Enter a sleep time between the flashing in seconds: ')
