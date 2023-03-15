@@ -88,8 +88,8 @@ https://www.electronicwings.com/raspberry-pi/raspberry-pi-uart-communication-usi
 ## Computer
 - Start the computer client in the computer-client folder with
 
-    python -m uvicorn main:app --reload
+        python -m uvicorn main:app --reload
 
 - Start the mosquitto broker in /etc/mosquitto with
 
-    mosquitto -c mosquitto.conf -v
+        mosquitto -c mosquitto.conf -v
