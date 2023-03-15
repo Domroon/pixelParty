@@ -79,3 +79,17 @@ https://docs.micropython.org/en/latest/library/machine.I2C.html#machine-i2c
 
 # UART Communication
 https://www.electronicwings.com/raspberry-pi/raspberry-pi-uart-communication-using-python-and-c
+
+# How to start the Parts of the Project
+
+## RaspberryPi
+- Start the RaspberryPi and start main.py in the raspberry-pi folder
+
+## Computer
+- Start the computer client in the computer-client folder with
+
+    python -m uvicorn main:app --reload
+
+- Start the mosquitto broker in /etc/mosquitto with
+
+    mosquitto -c mosquitto.conf -v
