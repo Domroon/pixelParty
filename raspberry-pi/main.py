@@ -758,6 +758,41 @@ class MQTTClient:
         self.converter.convert_pixels_file(f'weather.surface')
         self.sender.send_pixels_data(f'weather.surface-r.pixels')
 
+    def on_show_news(self, client, userdata, msg):
+        source_id = msg.payload.decode()
+        brightness = 5
+        self.news.get_headlines(source_id)
+        size = 5
+        for headline_text in self.news.headlines:
+            headline_converted = headline_text['title'].upper()
+            print(headline_converted)
+
+            headline = Word(headline_converted.upper(), size)
+            headline_len = len(headline.letters)
+            print(f'Word letters qty: {headline_len - 2}' )
+            headline.store_word()
+
+            news_source = Word(source_id.upper(), 5)
+            news_source.store_word()
+
+            surf = Surface()
+            surf.add(0, 6, WORDS_PATH, f'{headline.word}-{size}')
+            surf.add(0, 17, WORDS_PATH, f'{news_source.word}-{size}')
+            
+            surf.change_brightness(int(brightness))
+            surf.write(DATA_FOLDER, f'{headline.word}.surface')
+            self.converter.convert_pixels_file(f'{headline.word}.surface')
+            self.sender.send_pixels_data(f'{headline.word}.surface-r.pixels')
+            time.sleep(1)
+            for i in range(1, int(headline_len/2)):
+                surf.add(i *(-10), 6, WORDS_PATH, f'{headline.word}-{size}')
+                #source_id = input('Please enter brightness in %: ')
+                surf.change_brightness(int(brightness))
+                surf.write(DATA_FOLDER, f'{headline.word}.surface')
+                self.converter.convert_pixels_file(f'{headline.word}.surface')
+                self.sender.send_pixels_data(f'{headline.word}.surface-r.pixels', half=True)
+                time.sleep(0.3)
+
     def start(self):
         self.client.will_set(f'{DEVICE_NAME}/status', 'offline', qos=1)
         self.client.username_pw_set(self.username, self.password)
@@ -766,6 +801,7 @@ class MQTTClient:
         self.client.message_callback_add(f'{DEVICE_NAME}/animation', self.on_show_animation)
         self.client.message_callback_add(f'{DEVICE_NAME}/picture', self.on_show_picture)
         self.client.message_callback_add(f'{DEVICE_NAME}/weather', self.on_show_weather)
+        self.client.message_callback_add(f'{DEVICE_NAME}/news', self.on_show_news)
 
         # callbacks
         self.client.on_connect = self.on_connect
