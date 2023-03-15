@@ -84,6 +84,7 @@ https://www.electronicwings.com/raspberry-pi/raspberry-pi-uart-communication-usi
 
 ## RaspberryPi
 - Start the RaspberryPi and start main.py in the raspberry-pi folder
+- Choose "b" in the Menu
 
 ## Computer
 - Start the computer client in the computer-client folder with
