@@ -711,11 +711,22 @@ class MQTTClient:
             self.sender.send_pixels_data(f'{word.word}.surface-r.pixels', half=True)
             time.sleep(0.3)
 
+    def on_show_animation(self, client, userdata, msg):
+        payload = msg.payload.decode()
+        if ',' in payload:
+            cmd_list = payload.split(',')
+        else:
+            cmd_list = [payload]
+        print('CMD LIST', cmd_list)
+        print('CMD LIST[0]: ', cmd_list[0])
+        self.sender.send_animation_data(cmd_list[0])
+
     def start(self):
         self.client.will_set(f'{DEVICE_NAME}/status', 'offline', qos=1)
         self.client.username_pw_set(self.username, self.password)
         self.client.enable_logger(logger=logger)
         self.client.message_callback_add(f'{DEVICE_NAME}/scroll_text', self.on_show_scroll_text)
+        self.client.message_callback_add(f'{DEVICE_NAME}/animation', self.on_show_animation)
 
         # callbacks
         self.client.on_connect = self.on_connect

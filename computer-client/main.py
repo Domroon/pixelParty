@@ -96,9 +96,9 @@ def main():
                 elif user_ani == 'b':
                     sleep_time = input('Please Enter a sleep time between the flashing in seconds: ')
                     client.publish(f'{MATRIX_NAME}/animation', f'random_color_flash,{sleep_time}')
+                    break
                 else:
                     print('Wrong Input. Try again.')
-            client.publish(f'{MATRIX_NAME}/animation' )
         elif user_input == '4':
             picture_name = input('Please Enter a Filename from a Picture in the "Picture"-Folder: ')
             with open(CWD / 'pictures' / picture_name, 'rb') as file:
