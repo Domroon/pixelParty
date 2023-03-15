@@ -733,6 +733,31 @@ class MQTTClient:
         self.converter.convert_pixels_file(f'{random_filename}')
         self.sender.send_pixels_data(f'{random_filename}-r.pixels')
 
+    def on_show_weather(self, client, userdata, msg):
+        city_name = msg.payload.decode()
+        self.weather.get_weather()
+        size = 5
+        city = Word(self.weather.city, size)
+        city.store_word()
+        main = Word(self.weather.main, size)
+        main.store_word()
+        temp = Word(str(self.weather.temp), size)
+        temp.store_word()
+        humidity = Word(str(self.weather.humidity), size)
+        humidity.store_word()
+
+        surf = Surface()
+        surf.add(0, 1, WORDS_PATH, f'{city.word}-{size}')
+        surf.add(1, 8, WORDS_PATH, f'{main.word}-{size}')
+        surf.add(1, 15, WORDS_PATH, f'{temp.word}-{size}')
+        surf.add(1, 22, WORDS_PATH, f'{humidity.word}-{size}')
+        surf.add(15, 15, ICONS_PATH, self.weather.icon_filename)
+
+        surf.change_brightness(3)
+        surf.write(DATA_FOLDER, f'weather.surface')
+        self.converter.convert_pixels_file(f'weather.surface')
+        self.sender.send_pixels_data(f'weather.surface-r.pixels')
+
     def start(self):
         self.client.will_set(f'{DEVICE_NAME}/status', 'offline', qos=1)
         self.client.username_pw_set(self.username, self.password)
@@ -740,6 +765,7 @@ class MQTTClient:
         self.client.message_callback_add(f'{DEVICE_NAME}/scroll_text', self.on_show_scroll_text)
         self.client.message_callback_add(f'{DEVICE_NAME}/animation', self.on_show_animation)
         self.client.message_callback_add(f'{DEVICE_NAME}/picture', self.on_show_picture)
+        self.client.message_callback_add(f'{DEVICE_NAME}/weather', self.on_show_weather)
 
         # callbacks
         self.client.on_connect = self.on_connect
