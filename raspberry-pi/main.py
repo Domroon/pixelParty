@@ -3,6 +3,8 @@ import requests
 from pathlib import Path
 from PIL import Image
 from logging import getLogger
+from secrets import token_urlsafe
+import io
 
 import wiringpi
 import RPi.GPIO as GPIO
@@ -17,7 +19,7 @@ BAUDRATE = 115200
 CWD = Path.cwd()
 DATA_FOLDER = CWD / 'data'
 ANI_CONFIGS = CWD / 'ani_configs'
-IMAGE_PATH = CWD / 'pixel_images'
+IMAGE_PATH = CWD / 'pictures'
 WORDS_PATH = CWD / 'words'
 LETTERS_PATH = CWD / 'letters'
 ICONS_PATH = CWD / 'weather_icons'
@@ -677,6 +679,7 @@ class MQTTClient:
         self.ani_conf = AnimationConfig()
         self.weather = Weather(ICONS_PATH, WEATHER_API_KEY)
         self.news = News(NEWS_API_KEY)
+        self.img_converter = ImageConverter()
 
     def on_connect(self, client, userdata, flags, rc):
         print(f'Connected with result code {rc}')
@@ -721,12 +724,22 @@ class MQTTClient:
         print('CMD LIST[0]: ', cmd_list[0])
         self.sender.send_animation_data(cmd_list[0])
 
+    def on_show_picture(self, client, userdata, msg):
+        img_bytes = msg.payload
+        random_filename = token_urlsafe(16)
+        image = Image.open(io.BytesIO(img_bytes))
+        image.save(CWD / 'pictures' / f'{random_filename}.png')
+        self.img_converter.convert(random_filename)
+        self.converter.convert_pixels_file(f'{random_filename}')
+        self.sender.send_pixels_data(f'{random_filename}-r.pixels')
+
     def start(self):
         self.client.will_set(f'{DEVICE_NAME}/status', 'offline', qos=1)
         self.client.username_pw_set(self.username, self.password)
         self.client.enable_logger(logger=logger)
         self.client.message_callback_add(f'{DEVICE_NAME}/scroll_text', self.on_show_scroll_text)
         self.client.message_callback_add(f'{DEVICE_NAME}/animation', self.on_show_animation)
+        self.client.message_callback_add(f'{DEVICE_NAME}/picture', self.on_show_picture)
 
         # callbacks
         self.client.on_connect = self.on_connect
