@@ -5,6 +5,7 @@ from secrets import token_urlsafe
 import io
 
 from fastapi import FastAPI, Query, UploadFile, File
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 import paho.mqtt.client as pahoMqtt
 from PIL import Image
@@ -87,6 +88,21 @@ class Text(BaseModel):
 app = FastAPI()
 mqtt_client = MQTTClient()
 mqtt_client.start()
+
+
+origins = [
+    "http://localhost",
+    "http://localhost:8080",
+    "http://localhost:5173"
+]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.get("/pixel-master/status")
