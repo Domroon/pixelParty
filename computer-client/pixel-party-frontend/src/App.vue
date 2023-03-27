@@ -12,7 +12,7 @@
     <div class="buttons">
       <router-link to="/text" class="btn">Text</router-link>
       <router-link to="/animation" class="btn">Animation</router-link>
-      <router-link to="/" class="btn">Bild</router-link>
+      <router-link to="/picture" class="btn">Bild</router-link>
       <div class="btn">Wetter</div>
       <div class="btn">Nachrichten</div>
     </div>

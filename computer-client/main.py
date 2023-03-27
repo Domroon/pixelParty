@@ -123,7 +123,7 @@ async def animation(ani_type: str = Query("random_color_flash", enum=["random_co
 
 
 @app.post("/pixel-master/picture")
-async def picture(file: bytes = File("test")):
+async def picture(file: bytes = File("Null")):
     mqtt_client.show_picture(file)
     return {"file_size": len(file), "file": dir(file), "type": str(type(file))}
 
