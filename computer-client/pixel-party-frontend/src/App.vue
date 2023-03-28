@@ -14,7 +14,7 @@
       <router-link to="/animation" class="btn">Animation</router-link>
       <router-link to="/picture" class="btn">Bild</router-link>
       <div class="btn">Wetter</div>
-      <div class="btn">Nachrichten</div>
+      <router-link to="/news" class="btn">Nachrichten</router-link>
     </div>
   </div>
   <div>

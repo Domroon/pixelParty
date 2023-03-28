@@ -135,6 +135,18 @@ async def weather(city_name: Text):
 
 
 @app.post("/pixel-master/news")
-async def news(source_id: Text):
-    mqtt_client.show_news(source_id.text)
-    return {"source_id": source_id.text}
+async def news(source_id: str = 
+    Query("t3n", enum=[
+    "t3n",
+    "bild",
+    "der-tagesspiegel",
+    "die-zeit",
+    "focus",
+    "gruenderszene",
+    "handelsblatt",
+    "spiegel-online",
+    "wired-de",
+    "wirtschafts-woche"])):
+    mqtt_client.show_news(source_id)
+    print("source_id", source_id)
+    return {"source_id": source_id}
