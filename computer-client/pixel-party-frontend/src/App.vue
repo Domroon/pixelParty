@@ -1,5 +1,34 @@
 <script setup>
+  import { onMounted, ref} from 'vue';
+  import axios  from 'axios'
 
+  const status = ref('')
+  const showRed = ref(false)
+
+  const getStatus = () => {
+    axios
+      .get('http://127.0.0.1:8000/pixel-master/status')
+      .then(response => {
+        console.log(response.data)
+        status.value = response.data
+        console.log({"status": status.value})
+        if(status.value === "offline") {
+          showRed.value = true
+        } else {
+          showRed.value = false
+        }
+        
+      })
+  }
+
+  onMounted(() => {
+    console.log("log for first time")
+    getStatus()
+    setInterval(() => {
+      console.log("logging")
+      getStatus()
+    }, 2000)
+  })
 </script>
 
 <template>
@@ -7,13 +36,17 @@
     <h1>LED Matrix</h1>
     <h2>Status</h2>
     <div class="status"><div class="circle online"></div><div class="name">Computer Client</div></div>
-    <div class="status"><div class="circle offline"></div><div class="name">Matrix Client</div></div>
+    <div class="status">
+      <div v-if="showRed" class="circle offline"></div>
+      <div v-else class="circle online"></div>
+      <div class="name">Matrix Client</div>
+    </div>
     <h2>Was willst Du Anzeigen?</h2>
     <div class="buttons">
       <router-link to="/text" class="btn">Text</router-link>
       <router-link to="/animation" class="btn">Animation</router-link>
       <router-link to="/picture" class="btn">Bild</router-link>
-      <div class="btn">Wetter</div>
+      <router-link to="/weather" class="btn">Wetter</router-link>
       <router-link to="/news" class="btn">Nachrichten</router-link>
     </div>
   </div>
