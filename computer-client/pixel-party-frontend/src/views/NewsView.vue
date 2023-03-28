@@ -4,11 +4,11 @@ import axios  from 'axios'
 
 const selected_source_id = ref('')
 
-const sendSourceID = (sourceID) => {
-  console.log(sourceID)
+const sendSourceID = () => {
+  console.log()
   axios.post(`http://127.0.0.1:8000/pixel-master/news`,
     { 
-      'sourceID': "hello"
+      'text': selected_source_id.value
     },
     {
       headers: {
@@ -71,7 +71,7 @@ const send = () => {
         <option>Spiegel Online</option>
         <option>Wirtschafts Woche</option>
       </select>
-      <button v-on:click="send" class="btn">Senden</button>
+      <button v-on:click="sendSourceID" class="btn">Senden</button>
     </div>
   </main>
   
