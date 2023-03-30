@@ -327,8 +327,6 @@ class Word:
 
     def _append_letter(self, letter):
         for i in range(len(self.pixel_word)):
-            # if not self._last_col_is_empty(letter):
-            #     self.pixel_word[i] = self.pixel_word[i] + '[0, 0, 0];'
             self.pixel_word[i] = self.pixel_word[i] + letter[i]
 
     def _merge_all_letters(self):
@@ -429,7 +427,6 @@ class Weather:
     def get_weather(self):
         r = requests.get(f'https://api.openweathermap.org/data/2.5/weather?lat=51.44328996681601&lon=7.353236392707616&appid={self.key}&units=metric&lang=de')
         current_weather = r.json()
-        # current_weather = current_weather['weather'][0]
         self.id = current_weather['weather'][0]['id']
         self.main = current_weather['weather'][0]['main'].upper()
         self.desc = current_weather['weather'][0]['description']
@@ -506,7 +503,6 @@ class UserInterface:
         time.sleep(1)
         for i in range(1, int(word_len/2)):
             surf.add(i *(-10), 0, WORDS_PATH, f'{word.word}-{size}')
-            #user_input = input('Please enter brightness in %: ')
             surf.change_brightness(int(user_input))
             surf.write(DATA_FOLDER, f'{word.word}.surface')
             self.converter.convert_pixels_file(f'{word.word}.surface')
@@ -537,7 +533,6 @@ class UserInterface:
         time.sleep(1)
         for i in range(1, int(headline_len/2)):
             surf.add(i *(-10), 6, WORDS_PATH, f'{headline.word}-{size}')
-            #user_input = input('Please enter brightness in %: ')
             surf.change_brightness(int(user_input))
             surf.write(DATA_FOLDER, f'{headline.word}.surface')
             self.converter.convert_pixels_file(f'{headline.word}.surface')
@@ -596,7 +591,6 @@ class UserInterface:
             time.sleep(1)
             for i in range(1, int(headline_len/2)):
                 surf.add(i *(-10), 6, WORDS_PATH, f'{headline.word}-{size}')
-                #user_input = input('Please enter brightness in %: ')
                 surf.change_brightness(int(user_input_brightness))
                 surf.write(DATA_FOLDER, f'{headline.word}.surface')
                 self.converter.convert_pixels_file(f'{headline.word}.surface')
@@ -786,7 +780,6 @@ class MQTTClient:
             time.sleep(1)
             for i in range(1, int(headline_len/2)):
                 surf.add(i *(-10), 6, WORDS_PATH, f'{headline.word}-{size}')
-                #source_id = input('Please enter brightness in %: ')
                 surf.change_brightness(int(brightness))
                 surf.write(DATA_FOLDER, f'{headline.word}.surface')
                 self.converter.convert_pixels_file(f'{headline.word}.surface')
@@ -824,7 +817,6 @@ def main():
             broker_ip = input('Please Enter the Broker IP: ')
             mqtt_client = MQTTClient(broker_ip)
             mqtt_client.start()
-            # break
         else:
             print('Wrong Input. Try again.')
 
