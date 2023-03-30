@@ -17,7 +17,6 @@ ANI_CONFIGS = 'ani_configs'
 class Matrix:
     def __init__(self, np):
         self.np = np
-        # self.pixels = []
 
     def read_pixels_from_file(self, filename):
         pixels = []
@@ -27,7 +26,6 @@ class Matrix:
                 line = line.rstrip()
                 line = line.split(';')
                 del line[-1]
-                # line_list = []
                 for pixel in line:
                     pixel = pixel.replace('[', '')
                     pixel = pixel.replace(']', '')
@@ -44,12 +42,10 @@ class Matrix:
         gc.collect()
 
     def write_to_led(self, string_list):
-        # self.pixels.clear()
         pixels_string = []
         for line in string_list:
             pixels_string.append(line.decode().rstrip())  
 
-        # self.clear()
         for i, pixel in enumerate(pixels_string):
             rgb_value = []
             pixel = pixel.split(',')
@@ -57,11 +53,6 @@ class Matrix:
                 rgb_value.append(int(value))
             self.np[i] = rgb_value
         self.np.write()
-
-    # def write_to_led(self):
-    #     for i in range(self.np.n):
-    #         self.np[i] = self.pixels[i]
-    #     self.np.write()
 
     def clear(self):
         self.np.fill((0, 0, 0))
@@ -146,7 +137,6 @@ class UARTReceiver:
     def _receive_pixels_data(self):
         self.data.clear()
         gc.collect()
-        # counter = 0
         start_time = time.ticks_ms()
         while True:
             line = self.uart.readline()
@@ -154,8 +144,6 @@ class UARTReceiver:
                 break
             if line:
                 self.data.append(line)
-                # print(counter, line)
-                # counter = counter + 1
         self.data.pop()
         stop_time = time.ticks_ms()
         diff_time = time.ticks_diff(stop_time, start_time)
@@ -164,7 +152,6 @@ class UARTReceiver:
     def _receive_ani_data(self):
         self.data.clear()
         gc.collect()
-        # counter = 0
         start_time = time.ticks_ms()
         while True:
             line = self.uart.readline()
@@ -172,8 +159,6 @@ class UARTReceiver:
                 break
             if line:
                 self.data.append(line)
-                # print(counter, line)
-                # counter = counter + 1
         stop_time = time.ticks_ms()
         diff_time = time.ticks_diff(stop_time, start_time)
         print(f'Received Animation-Data in {diff_time} ms')
@@ -200,16 +185,9 @@ class Device:
         self.mode = self.rec.command
         self.data = self.rec.data
         self.run_loops = False
-        # for value in self.rec.data:
-        #    print(value)
-        # print('length:', len(self.rec.data))
         self._show_on_matrix()
-        # print('mode', self.mode)
-        # print('data', self.data)
-        # print('length', len(self.data))
 
     def _show_on_matrix(self):
-        # self.matrix.clear()
         if self.mode == 'PIXELS':
             self.show_ani = False
             self.matrix.write_to_led(self.data)
