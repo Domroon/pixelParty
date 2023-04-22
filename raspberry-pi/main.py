@@ -300,7 +300,14 @@ class Letter:
             path = LETTERS_PATH / 'exclamation.pixels'
         elif self.letter == '+':
             path = LETTERS_PATH / 'plus.pixels'
-        
+        elif self.letter == "„":
+            path = LETTERS_PATH / 'space.pixels'
+        elif self.letter == "“":
+            path = LETTERS_PATH / 'space.pixels'
+        elif self.letter == '"':
+            path = LETTERS_PATH / 'space.pixels'
+            
+
         with open(path) as file:
             for line in file:
                 line = line.replace('\n', '')
