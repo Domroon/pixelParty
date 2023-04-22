@@ -94,3 +94,12 @@ https://www.electronicwings.com/raspberry-pi/raspberry-pi-uart-communication-usi
 - Start the mosquitto broker in /etc/mosquitto with
 
         mosquitto -c mosquitto.conf -v
+
+- Start the SPA in the folder computer-client/pixel-party-frontend
+        
+        npm run dev
+
+- Start the main.py in the the folder raspberry-pi on the raspberry pi
+
+        ssh domroon@pixel-master.local
+        python main.py
