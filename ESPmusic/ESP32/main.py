@@ -11,7 +11,7 @@ from networking import Client
 pin_g2 = Pin(2, Pin.OUT, value=0)
 
 # Default MQTT server to connect to
-SERVER = "192.168.243.71" # input("Please enter MQTT Broker IP Address:")
+SERVER = "192.168.73.72" # input("Please enter MQTT Broker IP Address:")
 CLIENT_ID = b"led-matrix-music"
 COMPUTER_ID = "computer"
 TOPIC = b"led-matrix-music/#"
@@ -200,33 +200,61 @@ class Animation:
             self.np[256*mat_num + 32*i] = color
         self.np.write()
 
-    def unfilled_square(self, color=[10, 10, 10]):
+    def unfilled_square(
+            self,
+            size=0,
+            color_1=[10, 10, 10],
+            color_2=[10, 0, 0],
+            color_3=[10, 10, 0],
+            color_4=[0, 0, 10]
+            ):
         # right line
         mat_num = 1
         for i in range(8):
             if i % 2 == 0:
-                self.np[256*mat_num + 32*i + 31] = color
-                self.np[256*mat_num + 32*i + 63] = color
-            self.np[256*mat_num + 32*i] = color
+                self.np[256*mat_num + 32*i + 31 - size] = color_1
+                self.np[256*mat_num + 32*i + 63 - size] = color_1
+            self.np[256*mat_num + 32*i + size] = color_1
         mat_num = 3
         for i in range(8):
             if i % 2 == 0:
-                self.np[256*mat_num + 32*i + 31] = color
-                self.np[256*mat_num + 32*i + 63] = color
-            self.np[256*mat_num + 32*i] = color
+                self.np[256*mat_num + 32*i + 31 - size] = color_1
+                self.np[256*mat_num + 32*i + 63 - size] = color_1
+            self.np[256*mat_num + 32*i + size] = color_1
         
 
         # left line
-        mat_num = 1
-        color = [10, 0, 0]
+        mat_num = 0
         for i in range(8):
             if i % 2 == 0:
-                self.np[250*mat_num + 32*i + 31] = color
-                self.np[250*mat_num + 32*i + 63] = color
-            self.np[250*mat_num + 32*i] = color
+                self.np[256*mat_num + 32*i + 16 + size] = color_2
+                self.np[256*mat_num + 32*i + 48 + size] = color_2
+            self.np[256*mat_num + 32*i + 15 - size] = color_2
+        mat_num = 2
+        for i in range(8):
+            if i % 2 == 0:
+                self.np[256*mat_num + 32*i + 16 + size] = color_2
+                self.np[256*mat_num + 32*i + 48 + size] = color_2
+            self.np[256*mat_num + 32*i + 15 - size] = color_2
 
         # top line
+        mat_num = 0
+        for i in range(16):
+            self.np[256*mat_num + i + 16 * size] = color_3
+
+        mat_num = 1
+        for i in range(16):
+            self.np[256*mat_num + i + 16 * size] = color_3
+
+        
         # bottom line
+        mat_num = 2
+        for i in range(240, 256):
+            self.np[256*mat_num + i - 16 * size] = color_4
+
+        mat_num = 3
+        for i in range(240, 256):
+            self.np[256*mat_num + i - 16 * size] = color_4
 
         self.np.write()
 
@@ -345,10 +373,94 @@ def wriggling_right_line(animation, qty):
         num = num + 1
 
 
+def lines_to_middle(animation):
+    for size in range(0, 16):
+        animation.unfilled_square(size=size)
+        animation._clear()
+
+
+def lines_to_outward(animation):
+    for size in range(15, 0, -1):
+        animation.unfilled_square(size=size)
+        animation._clear()
+
+
+def fill_to_middle(animation, step_dura=0):
+    for size in range(0, 16):
+        animation.unfilled_square(size=size)
+        time.sleep_ms(step_dura)
+
+
+def fill_to_outward(animation, step_dura=0):
+    for size in range(15, 0, -1):
+        animation.unfilled_square(size=size)
+        time.sleep_ms(step_dura)
+
+def frame_color_spin(animation, step_dura=800):
+    animation.unfilled_square(
+            color_1=[10, 0, 0],
+            color_2=[0, 10, 0],
+            color_3=[0, 0, 10],
+            color_4=[10, 0, 10]
+        )
+    time.sleep_ms(step_dura)
+    animation.unfilled_square(
+        color_1=[10, 0, 10],
+        color_2=[10, 0, 0],
+        color_3=[0, 10, 0],
+        color_4=[0, 0, 10]
+    )
+    time.sleep_ms(step_dura)
+    animation.unfilled_square(
+        color_1=[0, 0, 10],
+        color_2=[10, 0, 10],
+        color_3=[10, 0, 0],
+        color_4=[0, 10, 0]
+    )
+    time.sleep_ms(step_dura)
+    animation.unfilled_square(
+            color_1=[0, 10, 0],
+            color_2=[0, 0, 10],
+            color_3=[10, 0, 10],
+            color_4=[10, 0, 0]
+    )
+    time.sleep_ms(step_dura)
+
+
+def big_and_little_squares(animation, step_dura=400):
+    animation._clear()
+    animation.single_mat_on(0, color=[10, 0, 0])
+    time.sleep_ms(step_dura)
+    animation._clear()
+    animation.single_mat_on(1, color=[0, 10, 0])
+    time.sleep_ms(step_dura)
+    animation._clear()
+    animation.single_mat_on(2, color=[0, 0, 10])
+    time.sleep_ms(step_dura)
+    animation._clear()
+    animation.single_mat_on(3, color=[10, 0, 10])
+
+    time.sleep_ms(step_dura)
+    animation._clear()
+    animation.np.fill((10, 0, 0))
+    animation.np.write()
+    time.sleep_ms(step_dura)
+    animation.np.fill((0, 10, 0))
+    animation.np.write()
+    time.sleep_ms(step_dura)
+    animation.np.fill((0, 0, 10))
+    animation.np.write()
+    time.sleep_ms(step_dura)
+    animation.np.fill((10, 0, 10))
+    animation.np.write()
+    time.sleep_ms(step_dura)
+
+
 def start_animation():
     animation = Animation(NP)
 
     try:
+        
         animation.completely_fade_in(step_dura=5)
         animation._clear()
         time.sleep_ms(100)
@@ -368,10 +480,73 @@ def start_animation():
         time.sleep_ms(100)
         strobes(animation, 5)
 
-        # color_squares_5_times(animation)
-        #mat_single_fade_in(animation)
-        #wriggling_right_line(animation, 5)
-        # animation.unfilled_square()
+        num = 0
+        qty = 22
+        while True:
+            if num == qty:
+                break
+            animation.random_color_flash(10)
+            num = num + 1
+        time.sleep_ms(500)
+
+        wriggling_right_line(animation, 3)
+        time.sleep_ms(50)
+        strobes(animation, 5)
+
+        lines_to_middle(animation)
+        lines_to_outward(animation)
+        time.sleep_ms(300)
+
+        strobes(animation, 5)
+
+        lines_to_middle(animation)
+        lines_to_outward(animation)
+        lines_to_middle(animation)
+        lines_to_outward(animation)
+    
+        fill_to_middle(animation)
+        animation._clear()
+        fill_to_outward(animation)
+
+        animation._clear()
+
+        num_outline = 0
+        qty_outline = 1
+        while True:
+            if num_outline == qty_outline:
+                break
+            frame_color_spin(animation)
+            num = 0
+            qty = 22
+            while True:
+                if num == qty:
+                    break
+                animation.random_color_flash(10)
+                num = num + 1
+            frame_color_spin(animation)
+
+            num_outline = num_outline + 1
+
+        time.sleep_ms(200)
+        big_and_little_squares(animation, step_dura=360)
+        big_and_little_squares(animation, step_dura=360)
+        big_and_little_squares(animation, step_dura=360)
+        big_and_little_squares(animation, step_dura=360)
+
+        lines_to_middle(animation)
+        lines_to_outward(animation)
+        lines_to_middle(animation)
+        lines_to_outward(animation)
+        num = 0
+        qty = 44
+        while True:
+            if num == qty:
+                break
+            animation.random_color_flash(10)
+            num = num + 1
+
+        while True:
+            animation.random_colors()
 
     except KeyboardInterrupt:
         print("KeyboardInterrupt")

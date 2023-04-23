@@ -1,7 +1,6 @@
 import time
 from logging import getLogger
 from pathlib import Path
-import ssl
 
 import paho.mqtt.client as mqtt
 from pydub import AudioSegment
@@ -47,7 +46,7 @@ def on_status(client, userdata, msg):
 
 
 def main():
-    broker_ip =  "192.168.243.71" # input('Please enter the IP of the Broker: ')
+    broker_ip =  "192.168.73.72" # input('Please enter the IP of the Broker: ')
     song = AudioSegment.from_mp3(CWD / "Darude - Sandstorm.mp3")
     client = mqtt.Client(COMPUTER_NAME, clean_session=False)
     client.will_set(f'{COMPUTER_NAME}/status', 'offline', qos=1)
@@ -68,7 +67,7 @@ def main():
         user_input = input('Input: \n')
         if user_input == '1':
             client.publish(f'{COMPUTER_NAME}/music', 'Darude-Sandstorm')
-            play(song[1500:20000])
+            play(song[1500:70000].fade_out(10000))
         elif user_input == 'q':
             client.publish(f'{COMPUTER_NAME}/status', 'offline', qos=1)
             client.disconnect()
