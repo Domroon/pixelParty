@@ -4,10 +4,12 @@ from pathlib import Path
 import ssl
 
 import paho.mqtt.client as mqtt
+from pydub import AudioSegment
+from pydub.playback import play
 
 USERNAME = "domroon"
 PASSWORD = "MPCkY5DGuU19sGgpvQvgYqN8Uw0"
-CWD = Path.cwd() / 'computer'
+CWD = Path.cwd()
 
 COMPUTER_NAME = "computer"
 
@@ -46,6 +48,7 @@ def on_status(client, userdata, msg):
 
 def main():
     broker_ip = input('Please enter the IP of the Broker: ')
+    song = AudioSegment.from_mp3(CWD / "Darude - Sandstorm.mp3")
     client = mqtt.Client(COMPUTER_NAME, clean_session=False)
     client.will_set(f'{COMPUTER_NAME}/status', 'offline', qos=1)
     client.username_pw_set(USERNAME, PASSWORD)
@@ -65,6 +68,7 @@ def main():
         user_input = input('Input: \n')
         if user_input == '1':
             client.publish(f'{COMPUTER_NAME}/music', 'Darude-Sandstorm')
+            play(song[2000:10000])
         elif user_input == 'q':
             client.publish(f'{COMPUTER_NAME}/status', 'offline', qos=1)
             client.disconnect()
