@@ -360,14 +360,19 @@ def main():
                     counter = 0
         except OSError as error:
             print('OSError:', error)
-            
-        mqtt.disconnect()
-        mqtt.connect()
-        mqtt.subscribe(TOPIC, qos=1)
-        print('Try again to connect to MQTT Broker')
-        time.sleep(1)
-        # client.disconnect()
-        # client.deactivate()
+            mqtt.disconnect()
+            mqtt.connect()
+            mqtt.subscribe(TOPIC, qos=1)
+            print('Try again to connect to MQTT Broker')
+            time.sleep(1)
+            mqtt.set_callback(evaluate_message)
+            mqtt.set_last_will(b"led_matrix/status", "offline", qos=1)
+            mqtt.connect()
+            mqtt.subscribe(TOPIC, qos=1)
+            mqtt.subscribe(TOPIC_2, qos=1)
+            mqtt.publish(b"led_matrix/status", "online", qos=1)
+            # client.disconnect()
+            # client.deactivate()
         
 
 if __name__ == '__main__':
