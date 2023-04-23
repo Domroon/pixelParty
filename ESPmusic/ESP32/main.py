@@ -11,7 +11,7 @@ from networking import Client
 pin_g2 = Pin(2, Pin.OUT, value=0)
 
 # Default MQTT server to connect to
-SERVER = input("Please enter MQTT Broker IP Address:")
+SERVER = "192.168.243.71" # input("Please enter MQTT Broker IP Address:")
 CLIENT_ID = b"led-matrix-music"
 COMPUTER_ID = "computer"
 TOPIC = b"led-matrix-music/#"
@@ -154,7 +154,13 @@ class Animation:
         self.np.write()
 
     def completely_fade_in(self, color=[1, 1, 1], step_dura=10):
-        for br in range(50):
+        for br in range(0, 50, 4):
+            self.np.fill([color[0]*br, color[1]*br, color[2]*br])
+            time.sleep_ms(step_dura)
+            self.np.write()
+
+    def completely_fade_in_2(self, color=[1, 1, 1], step_dura=10):
+        for br in range(0, 50, 10):
             self.np.fill([color[0]*br, color[1]*br, color[2]*br])
             time.sleep_ms(step_dura)
             self.np.write()
@@ -172,6 +178,11 @@ class Animation:
                 self.np[pos] = [color[0]*br, color[1]*br, color[2]*br]
             self.np.write()
             time.sleep_ms(step_dura)
+
+    def single_mat_on(self, num, color=[10, 10, 10]):
+        for pos in range((num-1)*256, 256 * num):
+            self.np[pos] = color
+        self.np.write()
 
     def right_line(self, mat_num=3, color=[10, 10, 10]):
         for i in range(8):
@@ -250,7 +261,7 @@ def color_squares_5_times(animation, break_time=80):
     animation.color_squares(color=[0, 10, 0])
 
 
-def single_squares_5_times(animation, break_time=80):
+def single_squares_5_times(animation, break_time=800):
     animation.single_color_square(0)
     time.sleep_ms(break_time)
     animation._clear()
@@ -264,6 +275,36 @@ def single_squares_5_times(animation, break_time=80):
     time.sleep_ms(break_time)
     animation._clear()
     animation.single_color_square(0)
+    time.sleep_ms(break_time)
+    animation._clear()
+
+
+def single_colored_squares_5_times(animation, break_time=800):
+    animation.single_color_square(3, color=[0, 10, 10])
+    time.sleep_ms(break_time)
+    animation._clear()
+    animation.single_color_square(0, color=[10, 0, 0])
+    time.sleep_ms(break_time)
+    animation._clear()
+    animation.single_color_square(1, color=[0, 10, 0])
+    time.sleep_ms(break_time)
+    animation._clear()
+    animation.single_color_square(2, color=[0, 0, 10])
+    time.sleep_ms(break_time)
+    animation._clear()
+    animation.single_color_square(0, color=[10, 0, 10])
+    time.sleep_ms(break_time)
+    animation._clear()
+
+
+def single_colored_mat_3_times(animation, break_time=800):
+    animation.single_mat_on(0, color=(20, 0, 0))
+    time.sleep_ms(break_time)
+    animation._clear()
+    animation.single_mat_on(2, color=(0, 20, 0))
+    time.sleep_ms(break_time)
+    animation._clear()
+    animation.single_mat_on(3, color=(0, 0, 20))
     time.sleep_ms(break_time)
     animation._clear()
 
@@ -308,12 +349,28 @@ def start_animation():
     animation = Animation(NP)
 
     try:
-        color_squares_5_times(animation)
+        animation.completely_fade_in(step_dura=5)
+        animation._clear()
+        time.sleep_ms(100)
+        strobes(animation, 1)
+        time.sleep_ms(1500)
         single_squares_5_times(animation)
-        animation.completely_fade_in()
+        single_colored_squares_5_times(animation)
+        single_colored_mat_3_times(animation)
+
+        # zweiter tusch
+        time.sleep_ms(300)
+        animation.completely_fade_in_2(step_dura=1)
+        animation._clear()
+        strobes(animation, 1)
+
+        # tusch doppler
+        time.sleep_ms(100)
         strobes(animation, 5)
-        mat_single_fade_in(animation)
-        wriggling_right_line(animation, 5)
+
+        # color_squares_5_times(animation)
+        #mat_single_fade_in(animation)
+        #wriggling_right_line(animation, 5)
         # animation.unfilled_square()
 
     except KeyboardInterrupt:
@@ -332,7 +389,8 @@ def evaluate_message(topic, msg):
         start_animation()
 
 
-def main():    
+def main():
+    # start_animation()
     logger = Logger()
     client = Client(logger)
     client.activate()
